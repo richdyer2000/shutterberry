@@ -1,0 +1,21 @@
+20160101: New Years Day
+20160325: Good Friday 
+20160328: Easter Monday
+20160501: Labour Day 
+20160505: Ascension Day
+20160516: Whitmonday 
+20160526: Corpus Christi  (Regional)
+20161003: German Unity Day 
+20161225: Christmas Day 
+20161226: St Stephens Day
+20170101: New Years Day
+20170414: Good Friday 
+20170417: Easter Monday
+20170501: Labour Day 
+20170525: Ascension Day
+20170525: Fathers Day
+20170605: Whitmonday 
+20170615: Corpus Christi  (Regional)
+20171003: German Unity Day 
+20171225: Christmas Day 
+20171226: St Stephens Day

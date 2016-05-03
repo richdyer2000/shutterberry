@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content = "height = device-height, width = 420, user-scalable = no" /> 
+    <title>ShutterBerry</title>
+    <script type="text/javascript" src="/webiopi.js"></script>
+    <script type="text/javascript">
+    
+    webiopi().ready(function() {
+
+      var BedroomButtonUp = webiopi().createSequenceButton("sos", "Kaiserwetter", 2, 500, "10");
+		var BedroomButtonStop = webiopi().createSequenceButton("sos", "Stop", 3, 500, "10");
+		var BedroomButtonDown = webiopi().createSequenceButton("sos", "Kack Wetter", 4, 500, "10");
+
+      var BathroomButtonUp = webiopi().createSequenceButton("sos", "Kaiserwetter", 17, 500, "10");           
+		var BathroomButtonStop = webiopi().createSequenceButton("sos", "Stop", 27, 500, "10");
+   	var BathroomButtonDown = webiopi().createSequenceButton("sos", "Kack Wetter", 22, 500, "10");
+     	
+     	var AllButtonUp=  webiopi().createMacroButton("AllShuttersUp","Kaiserwetter", "AllShuttersUp")
+		var AllButtonStop=  webiopi().createMacroButton("AllShuttersStop", "Stop","AllShuttersStop")
+		var AllButtonDown=  webiopi().createMacroButton("AllShuttersDown", "Kack Wetter","AllShuttersDown")
+		
+		//Append to Bedroom Controls     
+     $('#Bedroom').append(BedroomButtonUp); 
+     $('#Bedroom').append(BedroomButtonStop); 
+     $('#Bedroom').append(BedroomButtonDown); 
+
+		//Append to Bathroom Controls     
+     $('#Bathroom').append(BathroomButtonUp); 
+     $('#Bathroom').append(BathroomButtonStop); 
+     $('#Bathroom').append(BathroomButtonDown);  
+
+     	//Append to Global Controls     
+     $('#Global').append(AllButtonUp); 
+     $('#Global').append(AllButtonStop); 
+     $('#Global').append(AllButtonDown);  
+     
+     // Refresh GPIO buttons
+     // pass true to refresh repeatedly of false to refresh once
+                webiopi().refreshGPIO(true);
+     });
+     
+    </script>
+    <style type="text/css">
+
+        button {
+            display: block;
+				margin: 10px 10px 10px 5px;            
+            width: 100px;
+            height: 45px;
+            font-size: 10pt;
+            font-weight: bold;
+            color: yellow;
+	    		opacity: 0.5;
+	    		position: relative;
+        		}
+
+		container {
+			border: 1px solid #DDDDDD;
+			width: 132px;
+			height: 202px;
+			position: relative;}
+    </style>
+
+
+
+
+</head>
+<body>
+		<table>
+			<tr><td>Schlafzimmer</td><td>Badzimmer</td><td>Alle</td></tr>
+			<tr>
+					<td>
+							<div class="container">
+								<div id="Bedroom" align="center"></div> 
+							   <img src="Bedroom.jpg" height=200 width=130> </img> 
+							</div> 
+					</td>
+					<td>
+							<div class="container">
+								<div id="Bathroom" align="center"></div> 
+							   <img src="Bathroom.jpg" height=200 width=130> </img> 
+							</div> 
+					</td>		
+					
+					<td><div id="Global" align="center">   </div></td></tr>
+
+		</table>
+</body>
+</html>
