@@ -58,7 +58,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 		.ContainerGeneric{
 			border: 0px solid #DDDDDD;
 			width: 275px;
-			height: 200px;
+			height: 206px;
 			position: relative;}	
 		.ContainerBedBathroomAll {
 			border: 0px solid #DDDDDD;
@@ -158,18 +158,19 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 
 </head>
 <body>
-		<div class="DefaultText">
+	<div class="DefaultText">
+	<div>
 			<ul class="tab">
- 				<li><a href="#" class="tablinks" onclick="openRoom(event, 'BedBathroomOG')">Schlafzimmer/Bad-OG</a></li>
+ 				<li><a href="#" class="tablinks" onclick="openRoom(event, 'BedroomBathroom')">Schlafzimmer/Bad-OG</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Office')">Buro</a></li>
-  				<li><a href="#" class="tablinks" onclick="openRoom(event, 'SpareRoom')">Spare Room</a></li>
+  				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Spareroom')">Spare Room</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Guestroom')">Gastezimmer</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'GuestBathroom')">Gastebad</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Kitchen')">Kueche</a></li>
 			</ul>
 		
 		
-			<div id="BedBathroomOG" class="tabcontent">
+			<div id="BedroomBathroom" class="tabcontent">
 			<table>
 				<tr>
 						<td>
@@ -199,204 +200,51 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 						</td>		
 				</tr>
 			</table>
-			
-			<table>
-				<tr>
-				<td> </td>
-				<td>Auf:</td>
-				<td>Zu:</td>	
-			</tr>
-			<tr>
-				<td>Montag->Freitag</td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Samstag</td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Sonntag</td>
-				<td><div class="TimeInput"><input type="text" id="SundayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>		
-		</table>	
+			</div> 
 		
-				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
-				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
-				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
-				<input type = "checkbox" id="KackWetter">Kack Wetter Check<br>	
-				<input type = "button" value="Bestaetigung" onclick="ConfirmUpdate()"><br>
-
-			</div>
-			
 			<div id="GuestBathroom" class="tabcontent">
-
 							<div class="ContainerGeneric">
 								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
 								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="GuestBathroom.jpg" height=200 width=275>
 							</div> 
-		
-			<table>
-				<tr>
-				<td> </td>
-				<td>Auf:</td>
-				<td>Zu:</td>	
-			</tr>
-			<tr>
-				<td>Montag->Freitag</td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Samstag</td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Sonntag</td>
-				<td><div class="TimeInput"><input type="text" id="SundayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>		
-		</table>	
-		
-				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
-				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
-				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
-				<input type = "checkbox" id="KackWetter">Kack Wetter Check<br>	
-				<input type = "button" value="Bestaetigung" onclick="ConfirmUpdate()"><br>
-
 			</div>
 			
 			
 			<div id="Guestroom" class="tabcontent">
-
 							<div class="ContainerGeneric">
 								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
 								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="GuestBedroom.jpg" height=200 width=275>
 							</div> 
-		
-			<table>
-				<tr>
-				<td> </td>
-				<td>Auf:</td>
-				<td>Zu:</td>	
-			</tr>
-			<tr>
-				<td>Montag->Freitag</td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Samstag</td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Sonntag</td>
-				<td><div class="TimeInput"><input type="text" id="SundayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>		
-		</table>	
-		
-				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
-				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
-				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
-				<input type = "checkbox" id="KackWetter">Kack Wetter Check<br>	
-				<input type = "button" value="Bestaetigung" onclick="ConfirmUpdate()"><br>
-
 			</div>
 			
 		<div id="Kitchen" class="tabcontent">
-
-							<div class="ContainerGeneric">
+						 <div class="ContainerGeneric">
 								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
 								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="Kitchen.jpg" height=200 width=275>
-							</div> 
-		
-			<table>
-				<tr>
-				<td> </td>
-				<td>Auf:</td>
-				<td>Zu:</td>	
-			</tr>
-			<tr>
-				<td>Montag->Freitag</td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Samstag</td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Sonntag</td>
-				<td><div class="TimeInput"><input type="text" id="SundayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>		
-		</table>	
-		
-				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
-				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
-				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
-				<input type = "checkbox" id="KackWetter">Kack Wetter Check<br>	
-				<input type = "button" value="Bestaetigung" onclick="ConfirmUpdate()"><br>
-
-			</div>
+						</div> 
+		</div>
 			
 			<div id="Office" class="tabcontent">
-
 							<div class="ContainerGeneric">
 								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
 								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="Office.jpg" height=200 width=275>
 							</div> 
+			</div>
 		
-			<table>
-				<tr>
-				<td> </td>
-				<td>Auf:</td>
-				<td>Zu:</td>	
-			</tr>
-			<tr>
-				<td>Montag->Freitag</td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="WeekdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Samstag</td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SaturdayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>
-			<tr>
-				<td>Sonntag</td>
-				<td><div class="TimeInput"><input type="text" id="SundayUp" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
-			</tr>		
-		</table>	
-		
-				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
-				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
-				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
-				<input type = "checkbox" id="KackWetter">Kack Wetter Check<br>	
-				<input type = "button" value="Bestaetigung" onclick="ConfirmUpdate()"><br>
-
-			</div>		
-			
-			<div id="SpareRoom" class="tabcontent">
-
+			<div id="Spareroom" class="tabcontent">
 							<div class="ContainerGeneric">
 								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
 								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="SpareRoom.jpg" height=200 width=275>
 							</div> 
+			</div>			
+		</div>
 		
-			<table>
+		<table>
 				<tr>
 				<td> </td>
 				<td>Auf:</td>
@@ -418,75 +266,41 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
 			</tr>		
 		</table>	
-		
+		<div class="DefaultText">
 				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
 				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
 				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
 				<input type = "checkbox" id="KackWetter">Kack Wetter Check<br>	
 				<input type = "button" value="Bestaetigung" onclick="ConfirmUpdate()"><br>
-
-			</div>			
 		</div>
+	</div>
 </body>
 
 	<script type="text/javascript" src="/webiopi.js"></script>			
 	<script type="text/javascript" >
-	
-    
-// Don't really understand what's going on here - updated from Macro tutorial
-// Functionally, it gets the Configuration from the file 	(/home/pi/ShutterBerry/python/BedroomBathroom.cfg) via python macro
-// and then sets values of various html elements 
+   
+   var MyRoom = "blah"
 	webiopi().ready(function() { 
-	        var updateConfig = function(macro, args, response) {
-           var myConfig = response.split(";");
-         	              		
-           	
-           	//Don't use the WebIOPI library as it doesn't add value.	
-           	//Text Boxes
-           document.getElementById("WeekdayUp").value = myConfig[0];
-           document.getElementById("WeekdayDown").value = myConfig[1];
-           document.getElementById("SaturdayUp").value = myConfig[2];
-           document.getElementById("SaturdayDown").value = myConfig[3]; 
-           document.getElementById("SundayUp").value = myConfig[4];
-           document.getElementById("SundayDown").value = myConfig[5];     
- 			  
- 			  //Check Boxes. Slightly more work as we have to use Boolean, not string. 
- 			  //On reload, boxes are unchecked. Only check if relevant variable is true (and then check the box), otherwise leave unchecked
- 			  // Probably a cleaner way to do this...
-				if(myConfig[6] =="true") 	{
-						document.getElementById("AutoShutter").checked = true; 
-						}		  
- 				if(myConfig[7] =="true") 	{
- 			  			document.getElementById("Holidays").checked = true ; 
- 			 			}
- 			  if(myConfig[8] =="true") 	{
- 			  			document.getElementById("SunRiseSet").checked = true;
- 			  			}
- 			  if(myConfig[9] =="true") 	{
- 			  			document.getElementById("KackWetter").checked =  true;
-        				}
-				}
-				
-        		webiopi().callMacro("getConfig", [], updateConfig);
-
-			 });
+	openRoom(event, 'BedroomBathroom') 
+	});
 		
 		// Confirm/Bestaetigung button just gets all the values of the elements and passes them to the Python Macro which will write them to a file (/home/pi/ShutterBerry/python/BedroomBathroom.cfg)
 		// and generally do what needs to be done with them.
 		function ConfirmUpdate() {
 			
 			// just set the array to 10 numbers so we can have distinct lines to set each element properly
-			var CurrentConfig = [1,2,3,4,5,6,7,8,9,10];
-			CurrentConfig[0] = document.getElementById("WeekdayUp").value;
-			CurrentConfig[1] = document.getElementById("WeekdayDown").value;
-			CurrentConfig[2] = document.getElementById("SaturdayUp").value;
-			CurrentConfig[3] = document.getElementById("SaturdayDown").value;
-			CurrentConfig[4] = document.getElementById("SundayUp").value;
-			CurrentConfig[5] = document.getElementById("SundayDown").value;			
-			CurrentConfig[6] = document.getElementById("AutoShutter").checked;
-			CurrentConfig[7] = document.getElementById("Holidays").checked;
-			CurrentConfig[8] = document.getElementById("SunRiseSet").checked;
-			CurrentConfig[9] = document.getElementById("KackWetter").checked;						
+			var CurrentConfig = [1,2,3,4,5,6,7,8,9,10,11];
+			CurrentConfig[0] =MyRoom;
+			CurrentConfig[1] = document.getElementById("WeekdayUp").value;
+			CurrentConfig[2] = document.getElementById("WeekdayDown").value;
+			CurrentConfig[3] = document.getElementById("SaturdayUp").value;
+			CurrentConfig[4] = document.getElementById("SaturdayDown").value;
+			CurrentConfig[5] = document.getElementById("SundayUp").value;
+			CurrentConfig[6] = document.getElementById("SundayDown").value;			
+			CurrentConfig[7] = document.getElementById("AutoShutter").checked;
+			CurrentConfig[8] = document.getElementById("Holidays").checked;
+			CurrentConfig[9] = document.getElementById("SunRiseSet").checked;
+			CurrentConfig[10] = document.getElementById("KackWetter").checked;						
 						
 			webiopi().callMacro("setConfig", CurrentConfig);
 			
@@ -510,7 +324,9 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 		
 		function openRoom(evt, roomName) {
     		var i, tabcontent, tablinks;
-
+		
+		//myRoom is a global also used for the ConfirmUpdate
+		MyRoom = roomName;
     	// Get all elements with class="tabcontent" and hide them
     tabcontent = document.getElementsByClassName("tabcontent");
     for (i = 0; i < tabcontent.length; i++) {
@@ -524,8 +340,59 @@ ul.tab li a:focus, .active {background-color: #ccc;}
     }
 
     // Show the current tab, and add an "active" class to the link that opened the tab
-    document.getElementById(roomName).style.display = "block";
+    document.getElementById(MyRoom).style.display = "block";
     evt.currentTarget.className += " active";
+
+	// Don't really understand what's going on here - updated from Macro tutorial
+	// Functionally, it gets the Configuration from the file 	(/home/pi/ShutterBerry/python/BedroomBathroom.cfg) via python macro
+	// and then sets values of various html elements 
+	        var updateConfig = function(macro, args, response) {
+           var myConfig = response.split(";");
+         	              		
+           	
+           	//Don't use the WebIOPI library as it doesn't add value.	
+           	//Text Boxes
+           document.getElementById("WeekdayUp").value = myConfig[0];
+           document.getElementById("WeekdayDown").value = myConfig[1];
+           document.getElementById("SaturdayUp").value = myConfig[2];
+           document.getElementById("SaturdayDown").value = myConfig[3]; 
+           document.getElementById("SundayUp").value = myConfig[4];
+           document.getElementById("SundayDown").value = myConfig[5];     
+ 			  
+ 			  //Check Boxes. Slightly more work as we have to use Boolean, not string. 
+ 			  //On reload, boxes are unchecked. Only check if relevant variable is true (and then check the box), otherwise leave unchecked
+ 			  // Probably a cleaner way to do this...
+				if(myConfig[6] =="true") 	{
+						document.getElementById("AutoShutter").checked = true; 
+						}	
+				if(myConfig[6] =="false") 	{
+						document.getElementById("AutoShutter").checked = false; 
+						}				  
+ 				if(myConfig[7] =="true") 	{
+ 			  			document.getElementById("Holidays").checked = true ; 
+ 			 			}
+ 	 			if(myConfig[7] =="false") 	{
+ 			  			document.getElementById("Holidays").checked = false ; 
+ 			 			}		 			
+ 			  if(myConfig[8] =="true") 	{
+ 			  			document.getElementById("SunRiseSet").checked = true;
+ 			  			}
+ 			   if(myConfig[8] =="false") 	{
+ 			  			document.getElementById("SunRiseSet").checked = false;
+ 			  			}			
+ 			  if(myConfig[9] =="true") 	{
+ 			  			document.getElementById("KackWetter").checked =  true;
+        				}
+        		if(myConfig[9] =="false") 	{
+ 			  			document.getElementById("KackWetter").checked =  false;
+        				}		
+        				
+				}
+				
+			
+        		webiopi().callMacro("getConfig", roomName, updateConfig);
+
+
 }			
 		</script>
 </html>

@@ -23,38 +23,70 @@ BedroomClose = 9
 # This has to be called from index html webiopi ready function so that it's refreshed each and everytime a web page is loaded
 # Also called at startup
 @webiopi.macro
-def getConfig():
+def getConfig(MyRoom):
 
-    # Variables stored in Config file used in many places - so declare as globals. 
-    global WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter
+    # Variables stored in Config file used in many places - so declare as global. Create a 2x2 Array with Columns = Number of Rooms and Rows = Number of Config Items +1 
+    global ShutterConfig
+    global NumberOfRooms
+    global NumberOfConfigItems
+
+    NumberOfRooms = 6
+    NumberOfConfigItems = 10
+    ShutterConfig = [[0 for x in range(NumberOfConfigItems + 1)] for y in range(NumberOfRooms)]
+
     
-    BedroomBathroomFile = open('/home/pi/ShutterBerry/python/BedroomBathroom.cfg', 'r')
-    for line in BedroomBathroomFile:
-
+    ConfigFile = open('/home/pi/ShutterBerry/python/Shutter.cfg', 'r')
+    for line in ConfigFile:
         #remove new line and carriage returns
         line = line.replace("\n", "")
         line = line.replace("\r", "")
         myvars = line.split(",")
-        if myvars[0]=="Weekday":
-            WeekdayUp = myvars[1]
-            WeekdayDown = myvars[2]
-        if myvars[0]=="Saturday":
-            SaturdayUp = myvars[1]
-            SaturdayDown = myvars[2]
-        if myvars[0]=="Sunday":
-            SundayUp = myvars[1]
-            SundayDown = myvars[2]
+        if myvars[0]=="Room":
+            ConfigIndex = 0
+        if myvars[0]=="WeekdayUp":
+            ConfigIndex = 1
+        if myvars[0]=="WeekdayDown":
+            ConfigIndex = 2
+        if myvars[0]=="SaturdayUp":
+            ConfigIndex = 3
+        if myvars[0]=="SaturdayDown":
+            ConfigIndex = 4
+        if myvars[0]=="SundayUp":
+            ConfigIndex = 5
+        if myvars[0]=="SundayDown":
+            ConfigIndex = 6
         if myvars[0]=="AutoShutter":
-            AutoShutter = myvars[1]
+            ConfigIndex = 7
         if myvars[0]=="Holidays":
-            Holidays = myvars[1]
+            ConfigIndex = 8
         if myvars[0]=="SunRiseSet":
-            SunRiseSet = myvars[1]
+            ConfigIndex = 9
         if myvars[0]=="KackWetter":
-            KackWetter = myvars[1]
+            ConfigIndex = 10 
+            
+        ShutterConfig[0][ConfigIndex] = myvars[1]
+        ShutterConfig[1][ConfigIndex] = myvars[2]
+        ShutterConfig[2][ConfigIndex] = myvars[3]
+        ShutterConfig[3][ConfigIndex] = myvars[4]
+        ShutterConfig[4][ConfigIndex] = myvars[5]
+        ShutterConfig[5][ConfigIndex] = myvars[6] 
 
-    BedroomBathroomFile.close()
+    ConfigFile.close()
 
+    for i in range(NumberOfRooms):
+        if (ShutterConfig[i][0] == MyRoom):
+            WeekdayUp = ShutterConfig[i][1]
+            WeekdayDown = ShutterConfig[i][2]
+            SaturdayUp = ShutterConfig[i][3]
+            SaturdayDown = ShutterConfig[i][4]
+            SundayUp = ShutterConfig[i][5]
+            SundayDown = ShutterConfig[i][6]
+            AutoShutter = ShutterConfig[i][7]
+            Holidays = ShutterConfig[i][8]
+            SunRiseSet = ShutterConfig[i][9]
+            KackWetter = ShutterConfig[i][10]
+
+    print (ShutterConfig)    
     return "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s" % (WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter)
 
 # setup function is automatically called at WebIOPi startup
@@ -83,8 +115,8 @@ def setup():
     GPIO.digitalWrite(BedroomOpen, GPIO.LOW)
     GPIO.digitalWrite(BedroomClose, GPIO.LOW) 
 
-    #Run get Config to set all the variables
-    getConfig();
+    #Run get Config to set all the variables - the room has to be passed in, but isn't important which
+    getConfig("Office");
                  
        
         
@@ -151,27 +183,52 @@ def BaierControl(MyGPIO):
     GPIO.digitalWrite(MyGPIO, GPIO.LOW)
     
 @webiopi.macro
-def setConfig(WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
+def setConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
 
-    # Set values of myline 
-    myline = [0,1,2,3,4,5,6]
-    myline[0] = 'Weekday,' + WeekdayUp + ',' + WeekdayDown
-    myline[1] = 'Saturday,' + SaturdayUp + ',' + SaturdayDown
-    myline[2] = 'Sunday,' + SundayUp + ',' + SundayDown
-    myline[3] = 'AutoShutter,' + AutoShutter
-    myline[4] = 'Holidays,' + Holidays
-    myline[5] = 'SunRiseSet,' + SunRiseSet
-    myline[6] = 'KackWetter,' + KackWetter
+    print(MyRoom)
+   
+    # Do the oposite of getConfig - i.e. update ShutterConfig and write it to the file.
+    for i in range(NumberOfRooms):
+        if (ShutterConfig[i][0] == MyRoom):
+            ShutterConfig[i][1] = WeekdayUp
+            ShutterConfig[i][2] = WeekdayDown
+            ShutterConfig[i][3] = SaturdayUp
+            ShutterConfig[i][4] = SaturdayDown
+            ShutterConfig[i][5] = SundayUp
+            ShutterConfig[i][6] = SundayDown
+            ShutterConfig[i][7] = AutoShutter
+            ShutterConfig[i][8] = Holidays
+            ShutterConfig[i][9] = SunRiseSet
+            ShutterConfig[i][10] = KackWetter
 
+    # First BuildUp each Line.
+    myline = [0 for x in range(NumberOfConfigItems + 1)]
+    myline[0] = 'Room'
+    myline[1] = 'WeekdayUp'
+    myline[2] = 'WeekdayDown'
+    myline[3] = 'SaturdayUp'
+    myline[4] = 'SaturdayDown'
+    myline[5] = 'SundayUp'
+    myline[6] = 'SundayDown'
+    myline[7] = 'AutoShutter'
+    myline[8] = 'Holidays'
+    myline[9] = 'SunRiseSet'
+    myline[10] = 'KackWetter'
+
+    for y in range(NumberOfConfigItems + 1):
+        for x in range(NumberOfRooms):
+            myline[y] = myline[y] + ',' + ShutterConfig[x][y] 
+    
+    
     # print myline and write to a file. 
-    BedroomBathroomFile = open('/home/pi/ShutterBerry/python/BedroomBathroom.cfg', 'w')
-    for index in range(len(myline)):
-        print (myline[index])
-        BedroomBathroomFile.write(myline[index] + '\n')
-    BedroomBathroomFile.close()
+    ConfigFile = open('/home/pi/ShutterBerry/python/Shutter.cfg', 'w')
+    for y in range(NumberOfConfigItems +1):
+        print (myline[y])
+        ConfigFile.write(myline[y] + '\n')
+    ConfigFile.close()
 
     # Once the file has been written, call getConfig which updates the globals for other functions to use
-    return getConfig()
+    return getConfig(MyRoom)
 
 @webiopi.macro
 def BedroomUpMacro():
