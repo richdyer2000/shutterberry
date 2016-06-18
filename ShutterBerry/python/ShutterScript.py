@@ -6,18 +6,29 @@ import urllib.request as webby
 # GPIO pin using BCM numbering
 GPIO = webiopi.GPIO
 
-#Velux Shutters
-BedroomUp = 2 
-BedroomStop = 3
-BedroomDown = 4
+NumberOfPins = 18
+GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(3)]
 
-BathroomUp = 17 
-BathroomStop = 27
-BathroomDown = 22
+ConfigFile = open('/home/pi/ShutterBerry/python/GPIO.cfg', 'r')
 
-#Baier Shutters
-BedroomOpen = 10
-BedroomClose = 9
+i= 0
+for line in ConfigFile:
+    #remove new line and carriage returns
+    line = line.replace("\n", "")
+    line = line.replace("\r", "")
+    myvars = line.split(",")
+            
+    GPIOConfig[0][i] = myvars[0]
+    GPIOConfig[1][i] = myvars[1]
+    GPIOConfig[2][i] = int(myvars[2])
+
+    i = i + 1
+
+ConfigFile.close()
+
+print (GPIOConfig)
+
+
 
 # Function reads from config file to populate the WebGUI with necessary variables
 # This has to be called from index html webiopi ready function so that it's refreshed each and everytime a web page is loaded
@@ -86,39 +97,18 @@ def getConfig(MyRoom):
             SunRiseSet = ShutterConfig[i][9]
             KackWetter = ShutterConfig[i][10]
 
-    print (ShutterConfig)    
     return "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s" % (WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter)
 
 # setup function is automatically called at WebIOPi startup
 def setup():
-    # set GPIO OUT
-    GPIO.setFunction(BedroomUp, GPIO.OUT)
-    GPIO.setFunction(BedroomStop, GPIO.OUT)
-    GPIO.setFunction(BedroomDown, GPIO.OUT)
+    # set GPIO OUT and LOW
+    for i in range(NumberOfPins):
+        GPIO.setFunction(GPIOConfig[2][i], GPIO.OUT)
+        GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
 
-    GPIO.setFunction(BathroomUp, GPIO.OUT)
-    GPIO.setFunction(BathroomStop, GPIO.OUT)
-    GPIO.setFunction(BathroomDown, GPIO.OUT)
-
-    GPIO.setFunction(BedroomOpen, GPIO.OUT)
-    GPIO.setFunction(BedroomClose, GPIO.OUT)
-
-    #Set GPIO Low
-    GPIO.digitalWrite(BedroomUp, GPIO.LOW)
-    GPIO.digitalWrite(BedroomStop, GPIO.LOW)
-    GPIO.digitalWrite(BedroomDown, GPIO.LOW)
-
-    GPIO.digitalWrite(BathroomUp, GPIO.LOW)
-    GPIO.digitalWrite(BathroomStop, GPIO.LOW)
-    GPIO.digitalWrite(BathroomDown, GPIO.LOW)
-
-    GPIO.digitalWrite(BedroomOpen, GPIO.LOW)
-    GPIO.digitalWrite(BedroomClose, GPIO.LOW) 
-
-    #Run get Config to set all the variables - the room has to be passed in, but isn't important which
+    #Run get Config to set all the variables - arbitrarily pass a room in
     getConfig("Office");
-                 
-       
+                       
         
 # Function is called daily to calculate Sun Rise and Sun Set times for current location    
 def DaylightHours():
@@ -163,29 +153,37 @@ def getHolidays():
 def CurrentWeather():
     print("Checking Current Weather")
 
-# Velux control sets the actual GPIOs. Retries, wait etc can be easily set globally    
-def VeluxControl(MyGPIO):
+# Velux control sets the actual GPIOs. Retries feature mitigates less reliable RF Link
+@webiopi.macro
+def VeluxControl(MyRoom, MyStatus):
+
     Tries = 2
     ButtonPress = 0.5
 
-    for x in range(Tries):
-        GPIO.digitalWrite(MyGPIO, GPIO.HIGH)
-        time.sleep(ButtonPress)
-        GPIO.digitalWrite(MyGPIO, GPIO.LOW)
-        time.sleep(ButtonPress)
+    for i in range(NumberOfPins):
+        if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
+            for x in range(Tries):
+                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
+                time.sleep(ButtonPress)
+                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+                time.sleep(ButtonPress)
+            i = NumberOfPins + 1
 
 # Baier control sets the actual GPIOs for the Baier Shutters    
-def BaierControl(MyGPIO):
-    ButtonPress = 1
+@webiopi.macro
+def BaierControl(MyRoom, MyStatus):
+    ButtonPress = 0.5
 
-    GPIO.digitalWrite(MyGPIO, GPIO.HIGH)
-    time.sleep(ButtonPress)
-    GPIO.digitalWrite(MyGPIO, GPIO.LOW)
-    
+    for i in range(NumberOfPins):
+        if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
+            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
+            time.sleep(ButtonPress)
+            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+        i = NumberOfPins + 1
+        
 @webiopi.macro
 def setConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
 
-    print(MyRoom)
    
     # Do the oposite of getConfig - i.e. update ShutterConfig and write it to the file.
     for i in range(NumberOfRooms):
@@ -223,62 +221,35 @@ def setConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp
     # print myline and write to a file. 
     ConfigFile = open('/home/pi/ShutterBerry/python/Shutter.cfg', 'w')
     for y in range(NumberOfConfigItems +1):
-        print (myline[y])
         ConfigFile.write(myline[y] + '\n')
     ConfigFile.close()
 
     # Once the file has been written, call getConfig which updates the globals for other functions to use
     return getConfig(MyRoom)
 
-@webiopi.macro
-def BedroomUpMacro():
-    VeluxControl(BedroomUp)
 
 @webiopi.macro
-def BedroomStopMacro():
-    VeluxControl(BedroomStop)
+def AutoShuttersOpen(MyRoom):
 
-@webiopi.macro
-def BedroomDownMacro():
-    VeluxControl(BedroomDown)
-
-@webiopi.macro
-def BedroomOpenMacro():
-    BaierControl(BedroomOpen)
-
-@webiopi.macro
-def BedroomCloseMacro():
-    BaierControl(BedroomClose)
-
-@webiopi.macro
-def BathroomUpMacro():
-    VeluxControl(BathroomUp)
-
-@webiopi.macro
-def BathroomStopMacro():
-    VeluxControl(BathroomStop)
-
-@webiopi.macro
-def BathroomDownMacro():
-    VeluxControl(BathroomDown)
-
-@webiopi.macro
-def BedBathroomUpMacro():
-    BedroomUpMacro()
-    time.sleep(0.5)
-    BathroomUpMacro()
-       
-@webiopi.macro
-def BedBathroomStopMacro():
-    BedroomStopMacro()
-    time.sleep(0.5)
-    BathroomStopMacro() 
+    # Check if this is the BedroomBathroom case and Open the Velux Shutters if necessary
+    if MyRoom == 'BedroomBathroom':
+        VeluxControl('Bedroom', 'Up')
+        VeluxControl('Bathroom', 'Up')
+        BaierControl('Bedroom', 'Open')
+    if MyRoom != 'BedroomBathroom':
+        BaierControl('MyRoom', 'Open')
     
+
 @webiopi.macro
-def BedBathroomDownMacro():
-    BedroomDownMacro()
-    time.sleep(0.5)
-    BathroomDownMacro() 
+def AutoShuttersClose(MyRoom):
+
+    # Check if this is the BedroomBathroom case and Close the Velux Shutters if necessary
+    if MyRoom == 'BedroomBathroom':
+        VeluxControl('Bedroom', 'Down')
+        VeluxControl('Bathroom', 'Down')
+        BaierControl('Bedroom', 'Close')
+    if MyRoom != 'BedroomBathroom':
+        BaierControl('MyRoom', 'Close')
 
 # Loop function is repeatedly called by WebIOPi
 # Use this to check if any action needs to be taken
@@ -314,27 +285,40 @@ def loop():
             print('today is ' + myvars[1])
     iCalHolidaysFile.close()        
 
-    # Check for Weekday
-    if(CurrentDay <= 4):
-        TodayOpenTime = WeekdayUp
-        TodayCloseTime = WeekdayDown
+    for i in range(NumberOfRooms):
+        MyRoom = ShutterConfig[i][0]
+        WeekdayUp = ShutterConfig[i][1]
+        WeekdayDown = ShutterConfig[i][2]
+        SaturdayUp = ShutterConfig[i][3]
+        SaturdayDown = ShutterConfig[i][4]
+        SundayUp = ShutterConfig[i][5]
+        SundayDown = ShutterConfig[i][6]
+        AutoShutter = ShutterConfig[i][7]
+        Holidays = ShutterConfig[i][8]
+        SunRiseSet = ShutterConfig[i][9]
+        KackWetter = ShutterConfig[i][10]
+
+        # Check for Weekday
+        if(CurrentDay <= 4):
+            TodayOpenTime = WeekdayUp
+            TodayCloseTime = WeekdayDown
         
-    # Check for Saturday
-    if(CurrentDay == 5):
-        TodayOpenTime = SaturdayUp
-        TodayCloseTime = SaturdayDown
+        # Check for Saturday
+        if(CurrentDay == 5):
+            TodayOpenTime = SaturdayUp
+            TodayCloseTime = SaturdayDown
 
-    # Check for Sunday OR Public Holiday
-    if(CurrentDay == 6) or ((HolidayToday == 'true') and (Holidays == 'true')):
-        TodayOpenTime = SundayUp
-        TodayCloseTime = SundayDown   
+        # Check for Sunday OR Public Holiday
+        if(CurrentDay == 6) or ((HolidayToday == 'true') and (Holidays == 'true')):
+            TodayOpenTime = SundayUp
+            TodayCloseTime = SundayDown   
 
-    #Check whether Shutters need opening...
-    if ((TodayOpenTime == CurrentTime) and (AutoShutter == 'true')):
-        BedBathroomUpMacro()
-        BedroomOpenMacro()
-
-    #Check whether Shutters need opening...
-    if ((TodayCloseTime == CurrentTime) and (AutoShutter == 'true')):
-        BedBathroomDownMacro()
-        BedroomCloseMacro()
+        #Check whether Shutters need opening...
+        if ((TodayOpenTime == CurrentTime) and (AutoShutter == 'true')):
+            print(MyRoom + " Auto Opening" + CurrentTime)
+            AutoShuttersOpen(MyRoom)
+            
+        #Check whether Shutters need opening...
+        if ((TodayCloseTime == CurrentTime) and (AutoShutter == 'true')):
+            print(MyRoom + " Auto Closing " + CurrentTime)
+            AutoShuttersClose(MyRoom)

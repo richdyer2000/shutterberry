@@ -169,32 +169,32 @@ ul.tab li a:focus, .active {background-color: #ccc;}
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Kitchen')">Kueche</a></li>
 			</ul>
 		
-		
+
 			<div id="BedroomBathroom" class="tabcontent">
 			<table>
 				<tr>
 						<td>
 							<div class="ContainerBedBathroom">
-								<div class="SingleUpArrow" onmousedown="BedroomUp()"><a href="#"><img src="up.png" height=50 width= 30 alt="Up"></a></div> 
-								<div class="SingleStopButton" onmousedown="BedroomStop()"> <a href="#"><img src="stop.png" height=30 width= 30 alt="Up"></a></div> 
-								<div class="SingleDownArrow" onmousedown="BedroomDown()"> <a href="#"><img src="down.png" height=50 width= 30 alt="Up"></a></div> 
-								<div class="ShuttersClosedBedroom" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=30 width= 50 alt="Up"></a></div>
-								<div class="ShuttersOpenBedroom" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=30 width= 50 alt="Up"></a></div>
+								<div class="SingleUpArrow" onmousedown="VeluxControl('Bedroom', 'Up')"><a href="#"><img src="up.png" height=50 width= 30 alt="Up"></a></div> 
+								<div class="SingleStopButton" onmousedown="VeluxControl('Bedroom', 'Stop')"> <a href="#"><img src="stop.png" height=30 width= 30 alt="Up"></a></div> 
+								<div class="SingleDownArrow" onmousedown="VeluxControl('Bedroom', 'Down')"> <a href="#"><img src="down.png" height=50 width= 30 alt="Up"></a></div> 
+								<div class="ShuttersClosedBedroom" onmousedown="BaierControl('Bedroom', 'Close')"> <a href="#"><img src="close.png" height=30 width= 50 alt="Up"></a></div>
+								<div class="ShuttersOpenBedroom" onmousedown="BaierControl('Bedroom', 'Open')"> <a href="#"><img src="open.png" height=30 width= 50 alt="Up"></a></div>
 								<img src="Bedroom.jpg" height=200 width=150>
 							</div> 
 						</td>					
 						<td>
 							<div class="ContainerBedBathroomAll">
-								<div class="DualUpArrow"  onmousedown="BedBathroomUp()"><a href="#"><img src="up.png" height=50 width= 30 alt="Up"></a></div> 
-								<div class="DualStopButton" onmousedown="BedBathroomStop()"><a href="#"><img src="stop.png" height=30 width= 30 alt="Up"></a></div> 
-								<div class="DualDownArrow" onmousedown="BedBathroomDown()"><a href="#"><img src="down.png" height=50 width= 30 alt="Up"></a></div> 							
+								<div class="DualUpArrow"  onmousedown="VeluxControl('BedBathroom', 'Up')"><a href="#"><img src="up.png" height=50 width= 30 alt="Up"></a></div> 
+								<div class="DualStopButton" onmousedown="VeluxControl('BedBathroom', 'Stop')"><a href="#"><img src="stop.png" height=30 width= 30 alt="Up"></a></div> 
+								<div class="DualDownArrow" onmousedown="VeluxControl('BedBathroom', 'Down')"><a href="#"><img src="down.png" height=50 width= 30 alt="Up"></a></div> 							
 							</div> 
 						</td>
 						<td>
 							<div class="ContainerBedBathroom">
-								<div class="SingleUpArrow" onmousedown="BathroomUp()"><a href="#"><img src="up.png" height=50 width= 30 alt="Up"></a></div> 
-								<div class="SingleStopButton" onmousedown="BathroomStop()"><a href="#"><img src="stop.png" height=30 width= 30 alt="Up"></a></div> 
-								<div class="SingleDownArrow" onmousedown="BathroomDown()"><a href="#"><img src="down.png" height=50 width= 30 alt="Up"></a></div> 						
+								<div class="SingleUpArrow" onmousedown="VeluxControl('Bathroom', 'Up')"><a href="#"><img src="up.png" height=50 width= 30 alt="Up"></a></div> 
+								<div class="SingleStopButton" onmousedown="VeluxControl('Bathroom', 'Stop')"><a href="#"><img src="stop.png" height=30 width= 30 alt="Up"></a></div> 
+								<div class="SingleDownArrow" onmousedown="VeluxControl('Bathroom', 'Down')"><a href="#"><img src="down.png" height=50 width= 30 alt="Up"></a></div> 						
 							   <img src="Bathroom.jpg" height=200 width=150> </img> 
 							</div> 
 						</td>		
@@ -204,8 +204,8 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 		
 			<div id="GuestBathroom" class="tabcontent">
 							<div class="ContainerGeneric">
-								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
-								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
+								<div class="ShuttersClosedGeneric" onmousedown="BaierControl('GuestBathroom', 'Close')"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
+								<div class="ShuttersOpenGeneric" onmousedown="BaierControl('GuestBathroom', 'Open')"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="GuestBathroom.jpg" height=200 width=275>
 							</div> 
 			</div>
@@ -213,32 +213,32 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 			
 			<div id="Guestroom" class="tabcontent">
 							<div class="ContainerGeneric">
-								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
-								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
+								<div class="ShuttersClosedGeneric" onmousedown="BaierControl('Guestroom', 'Close')"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
+								<div class="ShuttersOpenGeneric" onmousedown="BaierControl('Guestroom', 'Open')"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="GuestBedroom.jpg" height=200 width=275>
 							</div> 
 			</div>
 			
 		<div id="Kitchen" class="tabcontent">
 						 <div class="ContainerGeneric">
-								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
-								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
+								<div class="ShuttersClosedGeneric" onmousedown="BaierControl('Kitchen', 'Close')"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
+								<div class="ShuttersOpenGeneric" onmousedown="BaierControl('Kitchen', 'Open')"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="Kitchen.jpg" height=200 width=275>
 						</div> 
 		</div>
 			
 			<div id="Office" class="tabcontent">
 							<div class="ContainerGeneric">
-								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
-								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
+								<div class="ShuttersClosedGeneric" onmousedown="BaierControl('Office', 'Close')"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
+								<div class="ShuttersOpenGeneric" onmousedown="BaierControl('Office', 'Open')"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="Office.jpg" height=200 width=275>
 							</div> 
 			</div>
 		
 			<div id="Spareroom" class="tabcontent">
 							<div class="ContainerGeneric">
-								<div class="ShuttersClosedGeneric" onmousedown="BedroomClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
-								<div class="ShuttersOpenGeneric" onmousedown="BedroomOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
+								<div class="ShuttersClosedGeneric" onmousedown="BaierControl('Spareroom', 'Close')"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
+								<div class="ShuttersOpenGeneric" onmousedown="BaierControl('Spareroom', 'Open')"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
 								<img src="SpareRoom.jpg" height=200 width=275>
 							</div> 
 			</div>			
@@ -308,19 +308,36 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 			}
 		
 		//Functions associated to pictures which call relevant Python Macros for manual shutter control...fairly self explanatory...			
-    	function BedroomUp() {webiopi().callMacro("BedroomUpMacro");}
-    	function BedroomStop() {webiopi().callMacro("BedroomStopMacro");}
-		function BedroomDown() {webiopi().callMacro("BedroomDownMacro");}
-		function BedroomOpen() {webiopi().callMacro("BedroomOpenMacro");}
-		function BedroomClose() {webiopi().callMacro("BedroomCloseMacro");}
-		
-    	function BathroomUp() {webiopi().callMacro("BathroomUpMacro");}
-    	function BathroomStop() {webiopi().callMacro("BathroomStopMacro");}
-		function BathroomDown() {webiopi().callMacro("BathroomDownMacro");}
 
-    	function BedBathroomUp() {webiopi().callMacro("BedBathroomUpMacro");}
-    	function BedBathroomStop() {webiopi().callMacro("BedBathroomStopMacro");}
-		function BedBathroomDown() {webiopi().callMacro("BedBathroomDownMacro");}   
+		function VeluxControl(roomName, Action) {
+			var roomNameAction = [1,2];
+			
+			//Run Twice in case it's the Bedroom & Bathroom Together	- Once for each room	
+			if(roomName == "BedBathroom"){						
+				roomNameAction[0] = "Bedroom";
+				roomNameAction[1] = Action;
+				webiopi().callMacro("VeluxControl", roomNameAction);
+				roomNameAction[0] = "Bathroom";
+				roomNameAction[1] = Action;
+				webiopi().callMacro("VeluxControl", roomNameAction);			
+				}
+			
+			//Otherwise, just run for the specified room.	
+			if(roomName != "BedBathroom"){						
+				roomNameAction[0] = roomName;
+				roomNameAction[1] = Action;
+				webiopi().callMacro("VeluxControl", roomNameAction);
+				}	
+				
+			}
+			
+		function BaierControl(roomName, Action) {
+			var roomNameAction = [1,2];
+			roomNameAction[0] = roomName;
+			roomNameAction[1] = Action;		
+			webiopi().callMacro("BaierControl", roomNameAction);
+			}	
+			
 		
 		function openRoom(evt, roomName) {
     		var i, tabcontent, tablinks;
