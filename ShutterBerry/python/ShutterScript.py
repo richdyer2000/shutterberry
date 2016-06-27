@@ -2,31 +2,49 @@ import webiopi
 import datetime
 import time
 import urllib.request as webby
+import sys
 
-# GPIO pin using BCM numbering
-GPIO = webiopi.GPIO
+sys.path.insert(1, '/usr/local/lib/python2.7/dist-packages')
 
-NumberOfPins = 18
-GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(3)]
+#import ephem
 
-ConfigFile = open('/home/pi/ShutterBerry/python/GPIO.cfg', 'r')
+print (sys.path)
 
-i= 0
-for line in ConfigFile:
-    #remove new line and carriage returns
-    line = line.replace("\n", "")
-    line = line.replace("\r", "")
-    myvars = line.split(",")
+
+ 
+
+# GPIO pin using BCM numbering 
+def GPIOConfig():
+
+    global NumberOfPins
+    global GPIOConfig
+    global GPIO
+    
+    GPIO = webiopi.GPIO
+
+    NumberOfPins = 18
+    GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(3)]
+
+    # Config file defines PIN numbers and their use
+    ConfigFile = open('/home/pi/ShutterBerry/python/GPIO.cfg', 'r')
+    i= 0
+    for line in ConfigFile:
+        #remove new line and carriage returns
+        line = line.replace("\n", "")
+        line = line.replace("\r", "")
+        myvars = line.split(",")
             
-    GPIOConfig[0][i] = myvars[0]
-    GPIOConfig[1][i] = myvars[1]
-    GPIOConfig[2][i] = int(myvars[2])
+        GPIOConfig[0][i] = myvars[0]
+        GPIOConfig[1][i] = myvars[1]
+        GPIOConfig[2][i] = int(myvars[2])
 
-    i = i + 1
+        i = i + 1
+    ConfigFile.close()
 
-ConfigFile.close()
-
-print (GPIOConfig)
+    # Set PINs to OUT and LOW
+    for i in range(NumberOfPins):
+        GPIO.setFunction(GPIOConfig[2][i], GPIO.OUT)
+        GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
 
 
 
@@ -101,13 +119,10 @@ def getConfig(MyRoom):
 
 # setup function is automatically called at WebIOPi startup
 def setup():
-    # set GPIO OUT and LOW
-    for i in range(NumberOfPins):
-        GPIO.setFunction(GPIOConfig[2][i], GPIO.OUT)
-        GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
-
+    # set GPIOs
+    GPIOConfig()
     #Run get Config to set all the variables - arbitrarily pass a room in
-    getConfig("Office");
+    getConfig("Office")
                        
         
 # Function is called daily to calculate Sun Rise and Sun Set times for current location    
@@ -163,9 +178,9 @@ def VeluxControl(MyRoom, MyStatus):
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
             for x in range(Tries):
-                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
-                time.sleep(ButtonPress)
                 GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+                time.sleep(ButtonPress)
+                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
                 time.sleep(ButtonPress)
             i = NumberOfPins + 1
 
@@ -176,9 +191,9 @@ def BaierControl(MyRoom, MyStatus):
 
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
-            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
-            time.sleep(ButtonPress)
             GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+            time.sleep(ButtonPress)
+            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
         i = NumberOfPins + 1
         
 @webiopi.macro
@@ -251,6 +266,23 @@ def AutoShuttersClose(MyRoom):
     if MyRoom != 'BedroomBathroom':
         BaierControl('MyRoom', 'Close')
 
+def SunRiseSetTimes(DayOfYear):
+    #Ultimately wand to use PyEphem (see www.Rhodesmill.org) but can't get it working. Just use LUT created from www.timeanddate.com
+    #Sunrise/Set times are for Darmstadt, Germany in GMT.
+
+    ConfigFile = open('/home/pi/ShutterBerry/python/SunRiseSet.cfg', 'r')
+    for line in ConfigFile:
+        #remove new line and carriage returns
+        line = line.replace("\n", "")
+        line = line.replace("\r", "")
+        myvars = line.split(",")
+        if myvars[0] == str(DayOfYear):
+            SunRiseUTC = myvars[1]
+            SunSetUTC = myvars[2]
+     
+    ConfigFile.close()
+    print(SunRiseUTC, SunSetUTC)
+    
 # Loop function is repeatedly called by WebIOPi
 # Use this to check if any action needs to be taken
 # 60 s sleep as we don't need super accurate opening times
@@ -258,6 +290,11 @@ def AutoShuttersClose(MyRoom):
 def loop():
     webiopi.sleep(60)
     now = datetime.datetime.now()
+
+    DOY_a = now.timetuple()
+    DOY = DOY_a.tm_yday
+    
+    SunRiseSetTimes(DOY)
 
     # Current Time is in format 00:00
     CurrentTime = '%0*d' % (2, now.hour) + ':' '%0*d' % (2, now.minute)
