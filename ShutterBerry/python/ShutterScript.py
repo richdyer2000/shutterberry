@@ -117,12 +117,35 @@ def getConfig(MyRoom):
 
     return "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s" % (WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter)
 
+def SunRiseSetTimes():
+    #Ultimately want to use PyEphem (see www.Rhodesmill.org) but can't get it working. Just use LUT created from www.timeanddate.com
+    #Sunrise/Set times are for Darmstadt, Germany in GMT.
+
+    # For now, just dump everything in a 3x366 array and declare that as global.
+    global SunRiseSetUTC
+    SunRiseSetUTC = [[0 for x in range(366)] for y in range(3)]
+
+
+    ConfigFile = open('/home/pi/ShutterBerry/python/SunRiseSet.cfg', 'r')
+    for line in ConfigFile:
+        #remove new line and carriage returns
+        line = line.replace("\w", "")
+        line = line.replace("\n", "")
+        line = line.replace("\r", "")
+        myvars = line.split(",")
+        SunRiseSetIndex = int(myvars[0]) -1 
+        SunRiseSetUTC[0][SunRiseSetIndex] = myvars[0]
+        SunRiseSetUTC[1][SunRiseSetIndex] = myvars[1]
+        SunRiseSetUTC[2][SunRiseSetIndex] = myvars[2]
+     
+    ConfigFile.close()
+    
 # setup function is automatically called at WebIOPi startup
 def setup():
-    # set GPIOs
+    # set GPIOs, initiate variables such as open close times, config for each window and SunRiseSet Times
     GPIOConfig()
-    #Run get Config to set all the variables - arbitrarily pass a room in
     getConfig("Office")
+    SunRiseSetTimes()
                        
         
 # Function is called daily to calculate Sun Rise and Sun Set times for current location    
@@ -131,9 +154,7 @@ def DaylightHours():
     
 # Function is called daily to get Hessen Holidays from iCal
 def getHolidays():
-   
-
-
+  
     # Create 2 lists - Holiday Dates and Holiday Descriptions
     HolidayDates = []
     HolidayDescriptions = []
@@ -266,41 +287,28 @@ def AutoShuttersClose(MyRoom):
     if MyRoom != 'BedroomBathroom':
         BaierControl('MyRoom', 'Close')
 
-def SunRiseSetTimes(DayOfYear):
-    #Ultimately wand to use PyEphem (see www.Rhodesmill.org) but can't get it working. Just use LUT created from www.timeanddate.com
-    #Sunrise/Set times are for Darmstadt, Germany in GMT.
-
-    ConfigFile = open('/home/pi/ShutterBerry/python/SunRiseSet.cfg', 'r')
-    for line in ConfigFile:
-        #remove new line and carriage returns
-        line = line.replace("\n", "")
-        line = line.replace("\r", "")
-        myvars = line.split(",")
-        if myvars[0] == str(DayOfYear):
-            SunRiseUTC = myvars[1]
-            SunSetUTC = myvars[2]
-     
-    ConfigFile.close()
-    print(SunRiseUTC, SunSetUTC)
     
 # Loop function is repeatedly called by WebIOPi
 # Use this to check if any action needs to be taken
 # 60 s sleep as we don't need super accurate opening times
 # Note, run sudo raspi-config to change time zone!
 def loop():
-    webiopi.sleep(60)
+
     now = datetime.datetime.now()
-
-    DOY_a = now.timetuple()
-    DOY = DOY_a.tm_yday
-    
-    SunRiseSetTimes(DOY)
-
+    UTCOffset = (-time.timezone/3600) + time.daylight
+   
     # Current Time is in format 00:00
     CurrentTime = '%0*d' % (2, now.hour) + ':' '%0*d' % (2, now.minute)
     
-    # Current Weekday used to check which schedule to use
-    CurrentDay = datetime.datetime.today().weekday()
+    # Current Day of Week and Day Of Year
+    CurrentDOW = int(now.strftime('%w'))
+    CurrentDOY = int(now.strftime('%j'))
+
+    SunRiseUTC = SunRiseSetUTC[1][CurrentDOY + 1].split(":")
+    SunSetUTC = SunRiseSetUTC[2][CurrentDOY + 1].split(":")
+
+    SunRiseLT = '%0*d' %(2, int(SunRiseUTC[0]) + UTCOffset) + ":" + SunRiseUTC[1] 
+    SunSetLT = '%0*d' %(2, int(SunSetUTC[0]) + UTCOffset) + ":" +  SunSetUTC[1] 
 
     #Current date in format yyyymmdd
     iCalDate = '%0*d' % (4, now.year) + '%0*d' % (2, now.month) + '%0*d' % (2, now.day)
@@ -336,19 +344,25 @@ def loop():
         KackWetter = ShutterConfig[i][10]
 
         # Check for Weekday
-        if(CurrentDay <= 4):
+        if(CurrentDOW <= 4):
             TodayOpenTime = WeekdayUp
             TodayCloseTime = WeekdayDown
         
         # Check for Saturday
-        if(CurrentDay == 5):
+        if(CurrentDOW == 5):
             TodayOpenTime = SaturdayUp
             TodayCloseTime = SaturdayDown
 
         # Check for Sunday OR Public Holiday
-        if(CurrentDay == 6) or ((HolidayToday == 'true') and (Holidays == 'true')):
+        if(CurrentDOW == 6) or ((HolidayToday == 'true') and (Holidays == 'true')):
             TodayOpenTime = SundayUp
-            TodayCloseTime = SundayDown   
+            TodayCloseTime = SundayDown
+
+        # Now Check for SunRiseSet Flag and times
+        if (SunRiseSet == 'true') and (datetime.datetime.strptime(SunSetLT, "%H:%M") < datetime.datetime.strptime(TodayCloseTime, "%H:%M")):
+            TodayCloseTime = SunSetLT
+        if (SunRiseSet == 'true') and (datetime.datetime.strptime(SunRiseLT, "%H:%M") > datetime.datetime.strptime(TodayOpenTime, "%H:%M")):
+            TodayOpenTime = SunRiseLT            
 
         #Check whether Shutters need opening...
         if ((TodayOpenTime == CurrentTime) and (AutoShutter == 'true')):
@@ -359,3 +373,8 @@ def loop():
         if ((TodayCloseTime == CurrentTime) and (AutoShutter == 'true')):
             print(MyRoom + " Auto Closing " + CurrentTime)
             AutoShuttersClose(MyRoom)
+
+    webiopi.sleep(60)
+
+    
+    
