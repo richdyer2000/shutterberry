@@ -3,15 +3,13 @@ import datetime
 import time
 import urllib.request as webby
 import sys
+import spidev
+sys.path.append('/home/pi/ShutterBerry/python')
+from lib_nrf24 import NRF24
 
-sys.path.insert(1, '/usr/local/lib/python2.7/dist-packages')
-
-#import ephem
-
-print (sys.path)
-
-
- 
+#separate GPIO definition for RF Interface to Arduino
+import RPi.GPIO as RFGPIO
+RFGPIO.setmode(RFGPIO.BCM)
 
 # GPIO pin using BCM numbering 
 def GPIOConfig():
@@ -21,11 +19,10 @@ def GPIOConfig():
     global GPIO
     
     GPIO = webiopi.GPIO
-
     NumberOfPins = 18
     GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(3)]
 
-    # Config file defines PIN numbers and their use
+    # Config file defines PIN numbers and their use. 'RF means shutter is controlled via arduino Nano
     ConfigFile = open('/home/pi/ShutterBerry/python/GPIO.cfg', 'r')
     i= 0
     for line in ConfigFile:
@@ -36,18 +33,62 @@ def GPIOConfig():
             
         GPIOConfig[0][i] = myvars[0]
         GPIOConfig[1][i] = myvars[1]
-        GPIOConfig[2][i] = int(myvars[2])
-
+        if (myvars[2] == 'RF'):
+            GPIOConfig[2][i] = myvars[2]
+        if (myvars[2] != 'RF'):
+            GPIOConfig[2][i] = int(myvars[2])
+            GPIO.setFunction(GPIOConfig[2][i], GPIO.OUT)
+            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
         i = i + 1
     ConfigFile.close()
 
-    # Set PINs to OUT and LOW
-    for i in range(NumberOfPins):
-        GPIO.setFunction(GPIOConfig[2][i], GPIO.OUT)
-        GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
 
+def arduinoSend(message):
+    
+    pipes = [[0xE8, 0xE8, 0xF0, 0xF0, 0xE1], [0xF0, 0xF0, 0xF0, 0xF0, 0xE1]]
+    
+    radio = NRF24(RFGPIO, spidev.SpiDev())
+    radio.begin(0,18)
 
+    radio.setPayloadSize(32)
+    radio.setChannel(0x76)
+    radio.setDataRate(NRF24.BR_1MBPS)
+    radio.setPALevel(NRF24.PA_MAX)
+    radio.setAutoAck(True)
+    radio.enableDynamicPayloads()
+    radio.enableAckPayload()
 
+    radio.openWritingPipe(pipes[0])
+    radio.openReadingPipe(1, pipes[1])
+    radio.printDetails()
+
+    while len(message) < 32:
+        message.append(0)
+
+    start = time.time()
+    radio.write(message)
+    print("Sent the message: {}".format(message))
+
+    # Start listening for Response from Arduino
+    radio.startListening()
+
+    while not radio.available(0):
+        time.sleep(1/100)
+        if time.time() - start > 2:
+
+          print ("Timed Out")
+          break
+          
+    receivedMessage = []
+    radio.read(receivedMessage, radio.getDynamicPayloadSize())
+
+    string = ""
+    for n in receivedMessage:
+        if (n >= 32 and n <= 126):
+            string += chr(n)
+    print("Rx'ed message: {}".format(string))
+    radio.stopListening()
+    
 # Function reads from config file to populate the WebGUI with necessary variables
 # This has to be called from index html webiopi ready function so that it's refreshed each and everytime a web page is loaded
 # Also called at startup
@@ -210,12 +251,22 @@ def VeluxControl(MyRoom, MyStatus):
 def BaierControl(MyRoom, MyStatus):
     ButtonPress = 0.5
 
+    
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
-            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
-            time.sleep(ButtonPress)
-            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
+            #Some Baier shutters are actually controlled via arduino Nano - GPIO set to 99
+            if (GPIOConfig[2][i] == 'RF'):
+                message = list(MyRoom + MyStatus)
+                arduinoSend(message)
+            if (GPIOConfig[2][i] != 'RF'):   
+                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+                time.sleep(ButtonPress)
+                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
         i = NumberOfPins + 1
+
+    # Some Baier shutters are actually controlled via Arduino Nano
+    # Rather than bothering with different cases, just send the radio message
+    # And let the Arduino sort it out
         
 @webiopi.macro
 def setConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
@@ -344,17 +395,17 @@ def loop():
         KackWetter = ShutterConfig[i][10]
 
         # Check for Weekday
-        if(CurrentDOW <= 4):
+        if(CurrentDOW <= 5):
             TodayOpenTime = WeekdayUp
             TodayCloseTime = WeekdayDown
         
         # Check for Saturday
-        if(CurrentDOW == 5):
+        if(CurrentDOW == 6):
             TodayOpenTime = SaturdayUp
             TodayCloseTime = SaturdayDown
 
         # Check for Sunday OR Public Holiday
-        if(CurrentDOW == 6) or ((HolidayToday == 'true') and (Holidays == 'true')):
+        if(CurrentDOW == 0) or ((HolidayToday == 'true') and (Holidays == 'true')):
             TodayOpenTime = SundayUp
             TodayCloseTime = SundayDown
 
