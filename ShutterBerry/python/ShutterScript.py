@@ -20,9 +20,9 @@ def GPIOConfig():
     
     GPIO = webiopi.GPIO
     NumberOfPins = 18
-    GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(3)]
+    GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(4)]
 
-    # Config file defines PIN numbers and their use. 'RF means shutter is controlled via arduino Nano
+    # Config file defines PIN numbers and their use. RPI means shutter is controlled RPI, ARD via arduino Nano
     ConfigFile = open('/home/pi/ShutterBerry/python/GPIO.cfg', 'r')
     i= 0
     for line in ConfigFile:
@@ -33,12 +33,12 @@ def GPIOConfig():
             
         GPIOConfig[0][i] = myvars[0]
         GPIOConfig[1][i] = myvars[1]
-        if (myvars[2] == 'RF'):
-            GPIOConfig[2][i] = myvars[2]
-        if (myvars[2] != 'RF'):
-            GPIOConfig[2][i] = int(myvars[2])
-            GPIO.setFunction(GPIOConfig[2][i], GPIO.OUT)
-            GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
+        GPIOConfig[2][i] = myvars[2]
+        GPIOConfig[3][i] = int(myvars[3])
+        #if it's a shutter controlled by the RPI, set the GPIO pins
+        if (GPIOConfig[2][i] == 'RPI'):
+            GPIO.setFunction(GPIOConfig[3][i], GPIO.OUT)
+            GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
         i = i + 1
     ConfigFile.close()
 
@@ -50,9 +50,9 @@ def arduinoSend(message):
     radio = NRF24(RFGPIO, spidev.SpiDev())
     radio.begin(0,18)
 
-    radio.setPayloadSize(32)
+    radio.setPayloadSize(1)
     radio.setChannel(0x76)
-    radio.setDataRate(NRF24.BR_1MBPS)
+    radio.setDataRate(NRF24.BR_250KBPS)
     radio.setPALevel(NRF24.PA_MAX)
     radio.setAutoAck(True)
     radio.enableDynamicPayloads()
@@ -60,34 +60,12 @@ def arduinoSend(message):
 
     radio.openWritingPipe(pipes[0])
     radio.openReadingPipe(1, pipes[1])
-    radio.printDetails()
+    #radio.printDetails()
 
-    while len(message) < 32:
-        message.append(0)
-
-    start = time.time()
     radio.write(message)
-    print("Sent the message: {}".format(message))
+    print("Commanded Arduino Digital {}".format(message))
 
-    # Start listening for Response from Arduino
-    radio.startListening()
 
-    while not radio.available(0):
-        time.sleep(1/100)
-        if time.time() - start > 2:
-
-          print ("Timed Out")
-          break
-          
-    receivedMessage = []
-    radio.read(receivedMessage, radio.getDynamicPayloadSize())
-
-    string = ""
-    for n in receivedMessage:
-        if (n >= 32 and n <= 126):
-            string += chr(n)
-    print("Rx'ed message: {}".format(string))
-    radio.stopListening()
     
 # Function reads from config file to populate the WebGUI with necessary variables
 # This has to be called from index html webiopi ready function so that it's refreshed each and everytime a web page is loaded
@@ -240,9 +218,9 @@ def VeluxControl(MyRoom, MyStatus):
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
             for x in range(Tries):
-                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
-                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
+                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
                 time.sleep(ButtonPress)
             i = NumberOfPins + 1
 
@@ -254,14 +232,14 @@ def BaierControl(MyRoom, MyStatus):
     
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
-            #Some Baier shutters are actually controlled via arduino Nano - GPIO set to 99
-            if (GPIOConfig[2][i] == 'RF'):
-                message = list(MyRoom + MyStatus)
+            #Some Baier shutters are actually controlled via arduino Nano 
+            if (GPIOConfig[2][i] == 'ARD'):
+                message = list(str(GPIOConfig[3][i]))
                 arduinoSend(message)
-            if (GPIOConfig[2][i] != 'RF'):   
-                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.LOW)
+            if (GPIOConfig[2][i] == 'RPI'):   
+                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
-                GPIO.digitalWrite(GPIOConfig[2][i], GPIO.HIGH)
+                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
         i = NumberOfPins + 1
 
     # Some Baier shutters are actually controlled via Arduino Nano
@@ -324,7 +302,7 @@ def AutoShuttersOpen(MyRoom):
         VeluxControl('Bathroom', 'Up')
         BaierControl('Bedroom', 'Open')
     if MyRoom != 'BedroomBathroom':
-        BaierControl('MyRoom', 'Open')
+        BaierControl(MyRoom, 'Open')
     
 
 @webiopi.macro
@@ -336,7 +314,7 @@ def AutoShuttersClose(MyRoom):
         VeluxControl('Bathroom', 'Down')
         BaierControl('Bedroom', 'Close')
     if MyRoom != 'BedroomBathroom':
-        BaierControl('MyRoom', 'Close')
+        BaierControl(MyRoom, 'Close')
 
     
 # Loop function is repeatedly called by WebIOPi
@@ -417,7 +395,7 @@ def loop():
 
         #Check whether Shutters need opening...
         if ((TodayOpenTime == CurrentTime) and (AutoShutter == 'true')):
-            print(MyRoom + " Auto Opening" + CurrentTime)
+            print(MyRoom + " Auto Opening " + CurrentTime)
             AutoShuttersOpen(MyRoom)
             
         #Check whether Shutters need opening...
