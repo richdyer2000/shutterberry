@@ -6,12 +6,10 @@
     <title>ShutterBerry</title>
 
     <style type="text/css">
-
 html, body {
 	height:100%;
 	margin:0;
 }
-
 /* Style the list */
 ul.tab {
     list-style-type: none;
@@ -21,10 +19,8 @@ ul.tab {
     border: 1px solid #ccc;
     background-color: #f1f1f1;
 }
-
 /* Float the list items side by side */
 ul.tab li {float: left;}
-
 /* Style the links inside the list items */
 ul.tab li a {
     display: inline-block;
@@ -35,13 +31,10 @@ ul.tab li a {
     transition: 0.3s;
     font-size: 8px;
 }
-
 /* Change background color of links on hover */
 ul.tab li a:hover {background-color: #ddd;}
-
 /* Create an active/current tablink class */
 ul.tab li a:focus, .active {background-color: #ccc;}
-
 /* Style the tab content */
 .tabcontent {
     display: none;
@@ -153,7 +146,8 @@ ul.tab li a:focus, .active {background-color: #ccc;}
         		
     </style>
 
-
+      
+   
 
 
 </head>
@@ -161,6 +155,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	<div class="DefaultText">
 	<div>
 			<ul class="tab">
+			   <li><a href="#" class="tablinks" onclick="openRoom(event, 'AllRooms')">Alle</a></li>
  				<li><a href="#" class="tablinks" onclick="openRoom(event, 'BedroomBathroom')">Schlafzimmer/Bad-OG</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Office')">Buro</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Spareroom')">Spare Room</a></li>
@@ -168,8 +163,20 @@ ul.tab li a:focus, .active {background-color: #ccc;}
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'GuestBathroom')">Gastebad</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Kitchen')">Kueche</a></li>
 			</ul>
+			</div>
 		
-
+		<div id="AllRooms" class="tabcontent">
+			<div class="ContainerGeneric">
+					<div class="ShuttersClosedGeneric" onmousedown="AllClose()"> <a href="#"><img src="close.png" height=80 width= 100 alt="Up"></a></div>
+					<div class="ShuttersOpenGeneric" onmousedown="AllOpen()"> <a href="#"><img src="open.png" height=84 width= 100 alt="Up"></a></div>
+					<img src="House.jpg" height=200 width=275>
+			</div> 
+	 <div id="chart_div" style="width: 400px; height: 120px;"></div>
+	<input type = "checkbox"  id="SunProtection">Enable Sun Protection<br>
+	<input type = "checkbox" id="ReOpen">Re-open after Sun Protection Period<br> 
+	<input type = "button" value="Bestaetigung" onclick="SunProtectionUpdate()"><br>
+		</div>
+		
 			<div id="BedroomBathroom" class="tabcontent">
 			<table>
 				<tr>
@@ -243,7 +250,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 							</div> 
 			</div>			
 		</div>
-		
+		<div class="DefaultText">
 		<table>
 				<tr>
 				<td> </td>
@@ -266,7 +273,6 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 				<td><div class="TimeInput"><input type="text" id="SundayDown" size="5" pattern="([0-1]{1}[0-9]{1}|20|21|22|23):[0-5]{1}[0-9]{1}"></div></td>
 			</tr>		
 		</table>	
-		<div class="DefaultText">
 				<input type = "checkbox"  id="AutoShutter">Enable Schedule<br>
 				<input type = "checkbox" id="Holidays">Feiertag=Sonntag<br>
 				<input type = "checkbox" id="SunRiseSet">Tageslicht Mask<br>
@@ -275,13 +281,51 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 		</div>
 	</div>
 </body>
-
 	<script type="text/javascript" src="/webiopi.js"></script>			
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript" >
+   
+    	google.charts.load('current', {'packages':['gauge']});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+
+        var data = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ['Inside', 18],
+          ['Outside', 20],
+        ]);
+
+        var options = {
+          width: 400, height: 120,
+          greenFrom:19, greenTo: 22,
+          yellowFrom:22, yellowTo: 30,
+          redFrom:30, redTo: 40,
+          minorTicks: 5,
+          majorTicks: ['-20', '-10', '0', '10', '20', '30', '40'],
+          max: 40,
+          min: -20
+        };
+
+        var chart = new google.visualization.Gauge(document.getElementById('chart_div'));
+
+        chart.draw(data, options);
+
+        setInterval(function() {
+          var updateTemps = function(macro, args, response) {
+          var myTemps = response.split(";");
+			 data.setValue(0, 1,myTemps[0]);
+          chart.draw(data, options);
+          data.setValue(1, 1, myTemps[1]);
+          chart.draw(data, options);
+          }
+       webiopi().callMacro("getTemps", [], updateTemps); 
+       }, 2000);      
+      }
+   
    
    var MyRoom = "blah"
 	webiopi().ready(function() { 
-	openRoom(event, 'BedroomBathroom') 
+	openRoom(event, 'Kitchen') 
 	});
 		
 		// Confirm/Bestaetigung button just gets all the values of the elements and passes them to the Python Macro which will write them to a file (/home/pi/ShutterBerry/python/BedroomBathroom.cfg)
@@ -307,8 +351,20 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 			alert("Settings Updated!")
 			}
 		
-		//Functions associated to pictures which call relevant Python Macros for manual shutter control...fairly self explanatory...			
+		function SunProtectionUpdate() {
+			// just set the array to 2 numbers so we can have distinct lines to set each element properly
+			var SunProtectionFlags = [1,2];
+			SunProtectionFlags[0] = document.getElementById("SunProtection").checked;
+			SunProtectionFlags[1] = document.getElementById("ReOpen").checked;						
+					
+			webiopi().callMacro("setSunProtectionFlags", SunProtectionFlags);
+			
+			alert("Settings Updated!")
+			}	        
+			
 
+       
+		//Functions associated to pictures which call relevant Python Macros for manual shutter control...fairly self explanatory...			
 		function VeluxControl(roomName, Action) {
 			var roomNameAction = [1,2];
 			
@@ -338,7 +394,27 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 			webiopi().callMacro("BaierControl", roomNameAction);
 			}	
 			
-		
+		function AllOpen()	{
+			VeluxControl('Bedroom', 'Up');	
+			VeluxControl('Bathroom', 'Up');	
+				BaierControl('Bedroom','Open');
+				BaierControl('GuestBathroom', 'Open');
+				BaierControl('Spareroom', 'Open');
+				BaierControl('Office', 'Open');
+				BaierControl('Kitchen', 'Open');
+				BaierControl('Guestroom', 'Open');
+			} 
+			function AllClose()	{
+				VeluxControl('Bedroom', 'Down')	;
+				VeluxControl('Bathroom', 'Down');	
+				BaierControl('Bedroom','Close');
+				BaierControl('GuestBathroom', 'Close');
+				BaierControl('Spareroom', 'Close');
+				BaierControl('Office', 'Close');
+				BaierControl('Kitchen', 'Close');
+				BaierControl('Guestroom', 'Close');
+			} 		
+	
 		function openRoom(evt, roomName) {
     		var i, tabcontent, tablinks;
 		
@@ -349,17 +425,17 @@ ul.tab li a:focus, .active {background-color: #ccc;}
     for (i = 0; i < tabcontent.length; i++) {
         tabcontent[i].style.display = "none";
     }
-
     // Get all elements with class="tablinks" and remove the class "active"
     tablinks = document.getElementsByClassName("tablinks");
     for (i = 0; i < tablinks.length; i++) {
         tablinks[i].className = tablinks[i].className.replace(" active", "");
     }
-
     // Show the current tab, and add an "active" class to the link that opened the tab
     document.getElementById(MyRoom).style.display = "block";
     evt.currentTarget.className += " active";
-
+	
+	//Don't want to run this for the "All Rooms" page	
+	if(MyRoom!="AllRooms") 	{
 	// Don't really understand what's going on here - updated from Macro tutorial
 	// Functionally, it gets the Configuration from the file 	(/home/pi/ShutterBerry/python/BedroomBathroom.cfg) via python macro
 	// and then sets values of various html elements 
@@ -408,8 +484,29 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 				
 			
         		webiopi().callMacro("getConfig", roomName, updateConfig);
-
-
+        		}
+        		if(MyRoom=="AllRooms") 	{
+        		var updateSunProtectionFlags = function(macro, args, response) {
+           var myFlags = response.split(";");
+         	              		
+				if(myFlags[0] =="true") 	{
+						document.getElementById("SunProtection").checked = true; 
+						}	
+				if(myFlags[0] =="false") 	{
+						document.getElementById("SunProtection").checked = false; 
+						}				  
+ 				if(myFlags[1] =="true") 	{
+ 			  			document.getElementById("ReOpen").checked = true ; 
+ 			 			}
+ 	 			if(myFlags[1] =="false") 	{
+ 			  			document.getElementById("ReOpen").checked = false ; 
+ 			 			}		 			
+ 			        				
+				}
+				
+			
+        		webiopi().callMacro("getSunProtectionConfig", [] , updateSunProtectionFlags);
+        		}
 }			
 		</script>
 </html>

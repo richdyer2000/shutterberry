@@ -42,7 +42,7 @@ def GPIOConfig():
         i = i + 1
     ConfigFile.close()
 
-
+# This function sends command to Arduino
 def arduinoSend(message):
     
     pipes = [[0xE8, 0xE8, 0xF0, 0xF0, 0xE1], [0xF0, 0xF0, 0xF0, 0xF0, 0xE1]]
@@ -64,9 +64,110 @@ def arduinoSend(message):
 
     radio.write(message)
     print("Commanded Arduino Digital {}".format(message))
+    #Wait a short time to clear buffer
+    time.sleep(1)
+
+#This function gets ths DS18B20 Temperature sensor readings and returns them to the webpage   
+@webiopi.macro
+def getTemps():
+    global InsideTemp
+    global OutsideTemp
+
+    myTemps = [0, 0]
+    devices = ['28-0316446faeff', '28-041643ac1bff']
+    base_dir = '/sys/bus/w1/devices/'
+
+    for y in range(2):
+
+        device_file =  base_dir + devices[y] +  '/w1_slave' 
+        f = open(device_file, 'r')
+        lines = f.readlines()
+        f.close()
+
+        while lines[0].strip()[-3:] != 'YES':
+            time.sleep(0.2)
+            lines = read_temp_raw()
+        equals_pos = lines[1].find('t=')
+        if equals_pos != -1:
+            temp_string = lines[1][equals_pos+2:]
+            temp_c = float(temp_string) / 1000.0
+        myTemps[y-1] = temp_c
 
 
+    InsideTemp = myTemps[0] #put code in here when sensor actually works!
+    OutsideTemp = myTemps[1]
+
+    return "%.1f;%.1f" % (InsideTemp, OutsideTemp) 
     
+@webiopi.macro
+def getSunProtectionConfig():
+    global SunProtectionConfig
+    
+    SunProtectionConfig = [[0 for x in range(9)] for y in range(4)]
+    ConfigFile = open('/home/pi/ShutterBerry/python/SunProtection.cfg', 'r')
+    for line in ConfigFile:
+        #remove new line and carriage returns
+        line = line.replace("\n", "")
+        line = line.replace("\r", "")
+        line = line.replace("\w", "")
+        myvars = line.split(",")
+        if myvars[0]=="SunProtection":
+            ConfigIndex = 0
+        if myvars[0]=="BedroomRoof":
+            ConfigIndex = 1
+        if myvars[0]=="BathroomRoof":
+            ConfigIndex = 2
+        if myvars[0]=="Bedroom":
+            ConfigIndex = 3
+        if myvars[0]=="Kitchen":
+            ConfigIndex = 4
+        if myvars[0]=="Office":
+            ConfigIndex = 5
+        if myvars[0]=="GuestBathroom":
+            ConfigIndex = 6
+        if myvars[0]=="Spareroom":
+            ConfigIndex = 7
+        if myvars[0]=="Guestroom":
+            ConfigIndex = 8
+
+        SunProtectionConfig[0][ConfigIndex] = myvars[0]
+        SunProtectionConfig[1][ConfigIndex] = myvars[1]
+        SunProtectionConfig[2][ConfigIndex] = myvars[2]
+        SunProtectionConfig[3][ConfigIndex] = myvars[3]
+
+    ConfigFile.close()
+
+    SunProtectionStatus = SunProtectionConfig[1][0]
+    ReOpenStatus = SunProtectionConfig[2][0]
+    print(SunProtectionStatus)
+    print(ReOpenStatus)
+    print(SunProtectionConfig)
+    return "%s;%s" % (SunProtectionStatus, ReOpenStatus)
+
+
+# This routine writes the SunProtectionConfig to a file
+def setSunProtectionConfig():
+    print(SunProtectionConfig)
+  
+    # print myline and write to a file. 
+    ConfigFile = open('/home/pi/ShutterBerry/python/SunProtection.cfg', 'w')
+    for y in range(9):
+        myline = SunProtectionConfig[0][y]
+        for x in range(3):
+            myline = myline + ',' + SunProtectionConfig[x+1][y]
+        ConfigFile.write(myline + '\n')
+    ConfigFile.close()
+
+# This just takes the SunProtection and Reopen Status from the webpage and updates SunProtectionConfig Global...
+# ...then writes it to the file by calling setSunProtectionConfig()
+@webiopi.macro
+def setSunProtectionFlags(SunProtectionStatus, ReOpenStatus):
+       SunProtectionConfig[1][0] = SunProtectionStatus
+       SunProtectionConfig[2][0] = ReOpenStatus
+       print(SunProtectionConfig)
+       setSunProtectionConfig()
+
+       
 # Function reads from config file to populate the WebGUI with necessary variables
 # This has to be called from index html webiopi ready function so that it's refreshed each and everytime a web page is loaded
 # Also called at startup
@@ -165,6 +266,7 @@ def setup():
     GPIOConfig()
     getConfig("Office")
     SunRiseSetTimes()
+    getSunProtectionConfig()
                        
         
 # Function is called daily to calculate Sun Rise and Sun Set times for current location    
