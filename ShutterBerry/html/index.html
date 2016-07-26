@@ -250,7 +250,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 							</div> 
 			</div>			
 		</div>
-		<div class="DefaultText">
+		<div id="RoomConfig" class="DefaultText">
 		<table>
 				<tr>
 				<td> </td>
@@ -284,15 +284,15 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	<script type="text/javascript" src="/webiopi.js"></script>			
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript" >
-   
+
     	google.charts.load('current', {'packages':['gauge']});
       google.charts.setOnLoadCallback(drawChart);
       function drawChart() {
 
         var data = google.visualization.arrayToDataTable([
           ['Label', 'Value'],
-          ['Inside', 18],
-          ['Outside', 20],
+          ['Inside', -20],
+          ['Outside', -20],
         ]);
 
         var options = {
@@ -310,6 +310,15 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 
         chart.draw(data, options);
 
+		  var updateTemps = function(macro, args, response) {
+          var myTemps = response.split(";");
+			 data.setValue(0, 1,myTemps[0]);
+          chart.draw(data, options);
+          data.setValue(1, 1, myTemps[1]);
+          chart.draw(data, options);
+          }
+       webiopi().callMacro("getTemps", [], updateTemps)
+		
         setInterval(function() {
           var updateTemps = function(macro, args, response) {
           var myTemps = response.split(";");
@@ -325,7 +334,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
    
    var MyRoom = "blah"
 	webiopi().ready(function() { 
-	openRoom(event, 'Kitchen') 
+	openRoom(event, "AllRooms") 
 	});
 		
 		// Confirm/Bestaetigung button just gets all the values of the elements and passes them to the Python Macro which will write them to a file (/home/pi/ShutterBerry/python/BedroomBathroom.cfg)
@@ -439,7 +448,8 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	// Don't really understand what's going on here - updated from Macro tutorial
 	// Functionally, it gets the Configuration from the file 	(/home/pi/ShutterBerry/python/BedroomBathroom.cfg) via python macro
 	// and then sets values of various html elements 
-	        var updateConfig = function(macro, args, response) {
+	        document.getElementById("RoomConfig").style.visibility="visible" ;   
+			var updateConfig = function(macro, args, response) {
            var myConfig = response.split(";");
          	              		
            	
@@ -486,7 +496,10 @@ ul.tab li a:focus, .active {background-color: #ccc;}
         		webiopi().callMacro("getConfig", roomName, updateConfig);
         		}
         		if(MyRoom=="AllRooms") 	{
-        		var updateSunProtectionFlags = function(macro, args, response) {
+        		
+				document.getElementById("RoomConfig").style.visibility="hidden" ;  
+				
+				var updateSunProtectionFlags = function(macro, args, response) {
            var myFlags = response.split(";");
          	              		
 				if(myFlags[0] =="true") 	{
