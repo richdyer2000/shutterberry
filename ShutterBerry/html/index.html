@@ -281,6 +281,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	<script type="text/javascript" src="/webiopi.js"></script>			
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 	<script type="text/javascript" >
+
     	google.charts.load('current', {'packages':['gauge']});
       google.charts.setOnLoadCallback(drawChart);
       function drawChart() {
@@ -301,6 +302,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
         };
         var chart = new google.visualization.Gauge(document.getElementById('chart_div'));
         chart.draw(data, options);
+        
 		  var updateTemps = function(macro, args, response) {
           var myTemps = response.split(";");
 			 data.setValue(0, 1,myTemps[0]);
