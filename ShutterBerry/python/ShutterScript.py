@@ -4,6 +4,7 @@ import time
 import urllib.request as webby
 import sys
 import spidev
+import os
 sys.path.append('/home/pi/ShutterBerry/python')
 from lib_nrf24 import NRF24
 
@@ -42,6 +43,7 @@ def GPIOConfig():
         i = i + 1
     ConfigFile.close()
 
+############################################################################
 # This function sends command to Arduino
 def arduinoSend(message):
     
@@ -66,7 +68,10 @@ def arduinoSend(message):
     print("Commanded Arduino Digital {}".format(message))
     #Wait a short time to clear buffer
     time.sleep(1)
+#
+##############################################################################
 
+###########################################################################################
 #This function gets ths DS18B20 Temperature sensor readings and returns them to the webpage   
 @webiopi.macro
 def getTemps():
@@ -78,109 +83,48 @@ def getTemps():
     base_dir = '/sys/bus/w1/devices/'
 
     for y in range(2):
+        device_file =  base_dir + devices[y] +  '/w1_slave'
 
-        device_file =  base_dir + devices[y] +  '/w1_slave' 
-        f = open(device_file, 'r')
-        lines = f.readlines()
-        f.close()
+        if (os.path.exists(device_file) == True):
+            f = open(device_file, 'r')
+            lines = f.readlines()
+            f.close()
 
-        while lines[0].strip()[-3:] != 'YES':
-            time.sleep(0.2)
-            lines = read_temp_raw()
-        equals_pos = lines[1].find('t=')
-        if equals_pos != -1:
-            temp_string = lines[1][equals_pos+2:]
-            temp_c = float(temp_string) / 1000.0
-        myTemps[y-1] = temp_c
+            while lines[0].strip()[-3:] != 'YES':
+                time.sleep(0.2)
+                lines = read_temp_raw()
+            equals_pos = lines[1].find('t=')
+            if equals_pos != -1:
+                temp_string = lines[1][equals_pos+2:]
+                temp_c = float(temp_string) / 1000.0
+            myTemps[y-1] = temp_c
 
 
     InsideTemp = myTemps[0] #put code in here when sensor actually works!
     OutsideTemp = myTemps[1]
 
     return "%.1f;%.1f" % (InsideTemp, OutsideTemp) 
+#
+##################################################################################################
+
     
+####################################################################################################       
+# Function to Read the Shutter Config from file
+# Plus another 2 macros to
+#   a. Return ShutterConfig for a specific Room to WebGUI
+#   b. Return SunProtection part to WebGUI
+# Current design is that SunProtection, ReOpen and Temp for Sun Protection work globally, but it's much
+# easier to asign these per room...also makes it more future proof incase GUI design changes
 @webiopi.macro
-def getSunProtectionConfig():
-    global SunProtectionConfig
-    
-    SunProtectionConfig = [[0 for x in range(9)] for y in range(4)]
-    ConfigFile = open('/home/pi/ShutterBerry/python/SunProtection.cfg', 'r')
-    for line in ConfigFile:
-        #remove new line and carriage returns
-        line = line.replace("\n", "")
-        line = line.replace("\r", "")
-        line = line.replace("\w", "")
-        myvars = line.split(",")
-        if myvars[0]=="SunProtection":
-            ConfigIndex = 0
-        if myvars[0]=="BedroomRoof":
-            ConfigIndex = 1
-        if myvars[0]=="BathroomRoof":
-            ConfigIndex = 2
-        if myvars[0]=="Bedroom":
-            ConfigIndex = 3
-        if myvars[0]=="Kitchen":
-            ConfigIndex = 4
-        if myvars[0]=="Office":
-            ConfigIndex = 5
-        if myvars[0]=="GuestBathroom":
-            ConfigIndex = 6
-        if myvars[0]=="Spareroom":
-            ConfigIndex = 7
-        if myvars[0]=="Guestroom":
-            ConfigIndex = 8
+def readShutterConfig():
 
-        SunProtectionConfig[0][ConfigIndex] = myvars[0]
-        SunProtectionConfig[1][ConfigIndex] = myvars[1]
-        SunProtectionConfig[2][ConfigIndex] = myvars[2]
-        SunProtectionConfig[3][ConfigIndex] = myvars[3]
-
-    ConfigFile.close()
-
-    SunProtectionStatus = SunProtectionConfig[1][0]
-    ReOpenStatus = SunProtectionConfig[2][0]
-    print(SunProtectionStatus)
-    print(ReOpenStatus)
-    print(SunProtectionConfig)
-    return "%s;%s" % (SunProtectionStatus, ReOpenStatus)
-
-
-# This routine writes the SunProtectionConfig to a file
-def setSunProtectionConfig():
-    print(SunProtectionConfig)
-  
-    # print myline and write to a file. 
-    ConfigFile = open('/home/pi/ShutterBerry/python/SunProtection.cfg', 'w')
-    for y in range(9):
-        myline = SunProtectionConfig[0][y]
-        for x in range(3):
-            myline = myline + ',' + SunProtectionConfig[x+1][y]
-        ConfigFile.write(myline + '\n')
-    ConfigFile.close()
-
-# This just takes the SunProtection and Reopen Status from the webpage and updates SunProtectionConfig Global...
-# ...then writes it to the file by calling setSunProtectionConfig()
-@webiopi.macro
-def setSunProtectionFlags(SunProtectionStatus, ReOpenStatus):
-       SunProtectionConfig[1][0] = SunProtectionStatus
-       SunProtectionConfig[2][0] = ReOpenStatus
-       print(SunProtectionConfig)
-       setSunProtectionConfig()
-
-       
-# Function reads from config file to populate the WebGUI with necessary variables
-# This has to be called from index html webiopi ready function so that it's refreshed each and everytime a web page is loaded
-# Also called at startup
-@webiopi.macro
-def getConfig(MyRoom):
-
-    # Variables stored in Config file used in many places - so declare as global. Create a 2x2 Array with Columns = Number of Rooms and Rows = Number of Config Items +1 
+# Variables stored in Config file used in many places - so declare as global. Create a 2x2 Array with Columns = Number of Rooms and Rows = Number of Config Items +1 
     global ShutterConfig
     global NumberOfRooms
     global NumberOfConfigItems
 
     NumberOfRooms = 6
-    NumberOfConfigItems = 10
+    NumberOfConfigItems = 16
     ShutterConfig = [[0 for x in range(NumberOfConfigItems + 1)] for y in range(NumberOfRooms)]
 
     
@@ -211,7 +155,19 @@ def getConfig(MyRoom):
         if myvars[0]=="SunRiseSet":
             ConfigIndex = 9
         if myvars[0]=="KackWetter":
-            ConfigIndex = 10 
+            ConfigIndex = 10
+        if myvars[0]=="SunProtection":
+            ConfigIndex = 11
+        if myvars[0]=="ReOpen":
+            ConfigIndex = 12
+        if myvars[0]=="ProtectionTemp":
+            ConfigIndex = 13
+        if myvars[0]=="SunProtectionStart":
+            ConfigIndex = 14            
+        if myvars[0]=="SunProtectionStop":
+            ConfigIndex = 15
+        if myvars[0]=="SunProtectionLastCommand":
+            ConfigIndex = 16
             
         ShutterConfig[0][ConfigIndex] = myvars[1]
         ShutterConfig[1][ConfigIndex] = myvars[2]
@@ -222,7 +178,10 @@ def getConfig(MyRoom):
 
     ConfigFile.close()
 
-    for i in range(NumberOfRooms):
+@webiopi.macro
+def getShutterConfig(MyRoom):
+
+   for i in range(NumberOfRooms):
         if (ShutterConfig[i][0] == MyRoom):
             WeekdayUp = ShutterConfig[i][1]
             WeekdayDown = ShutterConfig[i][2]
@@ -235,8 +194,16 @@ def getConfig(MyRoom):
             SunRiseSet = ShutterConfig[i][9]
             KackWetter = ShutterConfig[i][10]
 
-    return "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s" % (WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter)
+            return "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s" % (WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter)
 
+@webiopi.macro
+def getSunProtectionConfig():   
+    return "%s;%s" % (ShutterConfig[1][11], ShutterConfig[1][12])
+#
+########################################################################
+
+##################################################
+# Macro Just reads LUT with SunRise and Set times
 def SunRiseSetTimes():
     #Ultimately want to use PyEphem (see www.Rhodesmill.org) but can't get it working. Just use LUT created from www.timeanddate.com
     #Sunrise/Set times are for Darmstadt, Germany in GMT.
@@ -259,20 +226,21 @@ def SunRiseSetTimes():
         SunRiseSetUTC[2][SunRiseSetIndex] = myvars[2]
      
     ConfigFile.close()
+#
+###################################################    
     
+############################################################
 # setup function is automatically called at WebIOPi startup
 def setup():
-    # set GPIOs, initiate variables such as open close times, config for each window and SunRiseSet Times
     GPIOConfig()
-    getConfig("Office")
+    readShutterConfig()
     SunRiseSetTimes()
     getSunProtectionConfig()
-                       
-        
-# Function is called daily to calculate Sun Rise and Sun Set times for current location    
-def DaylightHours():
-    print("Checking Daylight Hours")
-    
+    getTemps()
+#
+#############################################################                       
+
+######################################################################################### 
 # Function is called daily to get Hessen Holidays from iCal
 def getHolidays():
   
@@ -303,13 +271,13 @@ def getHolidays():
         if ("[Not a public holiday]" not in HolidayDescriptions[index]) :
             iCalHolidaysFile.write(HolidayDates[index] + ':' + HolidayDescriptions[index] + '\n')
     iCalHolidaysFile.close()          
+#
+#########################################################################################
+   
 
-
-    
-# Function is called daily to get the local weather
-def CurrentWeather():
-    print("Checking Current Weather")
-
+#####################################################################################
+#The following 2 macros do the actually nitty gritty work
+#Separate Macros for the Baier and Velux Shutters - should sort this out at some point   
 # Velux control sets the actual GPIOs. Retries feature mitigates less reliable RF Link
 @webiopi.macro
 def VeluxControl(MyRoom, MyStatus):
@@ -343,28 +311,16 @@ def BaierControl(MyRoom, MyStatus):
                 time.sleep(ButtonPress)
                 GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
         i = NumberOfPins + 1
+#
+######################################################################################
 
-    # Some Baier shutters are actually controlled via Arduino Nano
-    # Rather than bothering with different cases, just send the radio message
-    # And let the Arduino sort it out
-        
+###########################################################################
+# This Macro writes the Array ShutterConfig to the File.
+# The following 2 macros are triggered by the Web UI and respectively set
+#   a. ShutterConfig for each room
+#   b. The SunProtection Settings
 @webiopi.macro
-def setConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
-
-   
-    # Do the oposite of getConfig - i.e. update ShutterConfig and write it to the file.
-    for i in range(NumberOfRooms):
-        if (ShutterConfig[i][0] == MyRoom):
-            ShutterConfig[i][1] = WeekdayUp
-            ShutterConfig[i][2] = WeekdayDown
-            ShutterConfig[i][3] = SaturdayUp
-            ShutterConfig[i][4] = SaturdayDown
-            ShutterConfig[i][5] = SundayUp
-            ShutterConfig[i][6] = SundayDown
-            ShutterConfig[i][7] = AutoShutter
-            ShutterConfig[i][8] = Holidays
-            ShutterConfig[i][9] = SunRiseSet
-            ShutterConfig[i][10] = KackWetter
+def writeShutterConfig():
 
     # First BuildUp each Line.
     myline = [0 for x in range(NumberOfConfigItems + 1)]
@@ -379,52 +335,89 @@ def setConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp
     myline[8] = 'Holidays'
     myline[9] = 'SunRiseSet'
     myline[10] = 'KackWetter'
-
+    myline[11] = 'SunProtection'
+    myline[12] = 'ReOpen'
+    myline[13] = 'ProtectionTemp'
+    myline[14] = 'SunProtectionStart'
+    myline[15] = 'SunProtectionStop'
+    myline[16] = 'SunProtectionLastCommand'
+    
     for y in range(NumberOfConfigItems + 1):
         for x in range(NumberOfRooms):
             myline[y] = myline[y] + ',' + ShutterConfig[x][y] 
-    
-    
+        
     # print myline and write to a file. 
     ConfigFile = open('/home/pi/ShutterBerry/python/Shutter.cfg', 'w')
     for y in range(NumberOfConfigItems +1):
         ConfigFile.write(myline[y] + '\n')
     ConfigFile.close()
 
-    # Once the file has been written, call getConfig which updates the globals for other functions to use
-    return getConfig(MyRoom)
+@webiopi.macro
+def setShutterConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
+   
+    # Do the oposite of getShutterConfig - i.e. update ShutterConfig write it to the file.
+    for i in range(NumberOfRooms):
+        if (ShutterConfig[i][0] == MyRoom):
+            ShutterConfig[i][1] = WeekdayUp
+            ShutterConfig[i][2] = WeekdayDown
+            ShutterConfig[i][3] = SaturdayUp
+            ShutterConfig[i][4] = SaturdayDown
+            ShutterConfig[i][5] = SundayUp
+            ShutterConfig[i][6] = SundayDown
+            ShutterConfig[i][7] = AutoShutter
+            ShutterConfig[i][8] = Holidays
+            ShutterConfig[i][9] = SunRiseSet
+            ShutterConfig[i][10] = KackWetter
 
+    writeShutterConfig()
 
 @webiopi.macro
-def AutoShuttersOpen(MyRoom):
+def setSunProtectionFlags(SunProtectionStatus, ReOpenStatus):
+    for i in range(NumberOfRooms):
+        ShutterConfig[i][11] = SunProtectionStatus     
+        ShutterConfig[i][12] = ReOpenStatus
 
-    # Check if this is the BedroomBathroom case and Open the Velux Shutters if necessary
+    writeShutterConfig()
+#
+##########################################################################################
+
+
+##########################################################################################
+# The next 2 macros handle the AutoOpen and Close - Only needed due to BadroomBathroom
+# Being handled as a single room and separate functions for Velux and Baier Shutters
+@webiopi.macro
+def AutoShuttersOpen(MyRoom):
     if MyRoom == 'BedroomBathroom':
         VeluxControl('Bedroom', 'Up')
         VeluxControl('Bathroom', 'Up')
         BaierControl('Bedroom', 'Open')
     if MyRoom != 'BedroomBathroom':
         BaierControl(MyRoom, 'Open')
-    
 
 @webiopi.macro
 def AutoShuttersClose(MyRoom):
-
-    # Check if this is the BedroomBathroom case and Close the Velux Shutters if necessary
     if MyRoom == 'BedroomBathroom':
         VeluxControl('Bedroom', 'Down')
         VeluxControl('Bathroom', 'Down')
         BaierControl('Bedroom', 'Close')
     if MyRoom != 'BedroomBathroom':
         BaierControl(MyRoom, 'Close')
+#
+##############################################################################################
 
-    
+def TimeNumeric(MyTime):
+    MyTimeArray = MyTime.split(":")
+    MyTimeNumeric = int(MyTimeArray[0])*60 + int(MyTimeArray[1])
+    return MyTimeNumeric;
+
+##############################################################################################    
 # Loop function is repeatedly called by WebIOPi
 # Use this to check if any action needs to be taken
 # 60 s sleep as we don't need super accurate opening times
 # Note, run sudo raspi-config to change time zone!
 def loop():
-
+    TotalTemp = InsideTemp + OutsideTemp
+    
     now = datetime.datetime.now()
     UTCOffset = (-time.timezone/3600) + time.daylight
    
@@ -473,7 +466,21 @@ def loop():
         Holidays = ShutterConfig[i][8]
         SunRiseSet = ShutterConfig[i][9]
         KackWetter = ShutterConfig[i][10]
+        SunProtection = ShutterConfig[i][11]
+        ReOpen = ShutterConfig[i][12]
+        ProtectionTemp = int(ShutterConfig[i][13])
+        SunProtectionStart = ShutterConfig[i][14]
+        SunProtectionStop = ShutterConfig[i][15]
+        SunProtectionLastCommand = ShutterConfig[i][16]
+      
 
+        ######################################################################################################
+        # The following Logic Looks after the "Standard" Schedule
+        # for each room.
+        # BUT, we shouldn't Open during Sun Protection Period if that's enabled and necessary.
+        # Also, if Sun Protection stops a shutter opening, the last command must also be set to closed
+        # so that the 'reopen' function works (N.B. will do that later)
+      
         # Check for Weekday
         if(CurrentDOW <= 5):
             TodayOpenTime = WeekdayUp
@@ -495,16 +502,59 @@ def loop():
         if (SunRiseSet == 'true') and (datetime.datetime.strptime(SunRiseLT, "%H:%M") > datetime.datetime.strptime(TodayOpenTime, "%H:%M")):
             TodayOpenTime = SunRiseLT            
 
+
+        TodayOpenTimeNumeric = TimeNumeric(TodayOpenTime)
+        TodayCloseTimeNumeric = TimeNumeric(TodayCloseTime)
+        SunProtectionStartNumeric = TimeNumeric(SunProtectionStart)
+        SunProtectionStopNumeric = TimeNumeric(SunProtectionStop)    
+        CurrentTimeNumeric = TimeNumeric(CurrentTime)
+
+        # Determine whether Sun Protection Should Prohibit Opening
+        SunProhibit = 'false'
+        if ((SunProtection == 'true') and (TotalTemp > ProtectionTemp) and (CurrentTimeNumeric > SunProtectionStartNumeric) and (CurrentTimeNumeric <  SunProtectionStopNumeric)):
+            SunProhibit = 'true'
+       
         #Check whether Shutters need opening...
         if ((TodayOpenTime == CurrentTime) and (AutoShutter == 'true')):
-            print(MyRoom + " Auto Opening " + CurrentTime)
-            AutoShuttersOpen(MyRoom)
+            # ..If they should and are allowed, open them
+            if (SunProhibit == 'false'):
+                print(MyRoom + " Auto Opening " + CurrentTime)
+                AutoShuttersOpen(MyRoom)
+            # ...If they Should but are prohibited, leave them but set the last command to 'Close' to allow re-opening function to work
+            if (SunProhibit == 'true'):
+                print(MyRoom + " Prohibited from Opening Due to Sun Protection " + CurrentTime)
+                ShutterConfig[i][16] = 'Close'
+                writeShutterConfig()
             
-        #Check whether Shutters need opening...
+            
+        #Check whether Shutters need closing...
         if ((TodayCloseTime == CurrentTime) and (AutoShutter == 'true')):
             print(MyRoom + " Auto Closing " + CurrentTime)
             AutoShuttersClose(MyRoom)
+        #
+        ################################################################
 
+        #############################################################################
+        #Check whether SunProtection Period is over and Shutters Should be Re-Opened
+        #To allow manual over-ride, only try to close at start of Sun Protection Period
+        #also prevent re-opening after scheduled closing time (or before scheduled opening time)
+
+        # Determine whether Schedule should prevent re-Opening
+        ScheduleProhibit = 'false'
+        if (CurrentTimeNumeric < TodayOpenTimeNumeric) or (CurrentTimeNumeric > TodayCloseTimeNumeric):
+            ScheduleProhibit = 'true'
+        
+        if ((SunProtection == 'true') and (TotalTemp > ProtectionTemp) and (CurrentTime == SunProtectionStart)):
+            AutoShuttersClose(MyRoom)
+            ShutterConfig[i][16] = 'Close'
+            writeShutterConfig()
+
+        if ((SunProtection == 'true') and (CurrentTime == SunProtectionStop) and (SunProtectionLastCommand == 'Close') and (ScheduleProhibit == 'false')):
+            AutoShuttersOpen(MyRoom)
+            ShutterConfig[i][16] = 'Open'
+            writeShutterConfig()            
+         #
+         ###############################################################################
     webiopi.sleep(60)
 
     
