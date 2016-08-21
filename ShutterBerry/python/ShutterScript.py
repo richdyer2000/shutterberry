@@ -229,17 +229,7 @@ def SunRiseSetTimes():
 #
 ###################################################    
     
-############################################################
-# setup function is automatically called at WebIOPi startup
-def setup():
-    GPIOConfig()
-    readShutterConfig()
-    SunRiseSetTimes()
-    getSunProtectionConfig()
-    getTemps()
-#
-#############################################################                       
-
+        
 ######################################################################################### 
 # Function is called daily to get Hessen Holidays from iCal
 def getHolidays():
@@ -274,6 +264,17 @@ def getHolidays():
 #
 #########################################################################################
    
+############################################################
+# setup function is automatically called at WebIOPi startup
+def setup():
+    GPIOConfig()
+    readShutterConfig()
+    SunRiseSetTimes()
+    getSunProtectionConfig()
+    getTemps()
+    getHolidays()
+#
+#############################################################              
 
 #####################################################################################
 #The following 2 macros do the actually nitty gritty work
@@ -405,10 +406,14 @@ def AutoShuttersClose(MyRoom):
 #
 ##############################################################################################
 
+##############################################################################
+# Turns time in format HH:MM to integer minutes of day to allow comparisons
 def TimeNumeric(MyTime):
     MyTimeArray = MyTime.split(":")
     MyTimeNumeric = int(MyTimeArray[0])*60 + int(MyTimeArray[1])
     return MyTimeNumeric;
+#
+##############################################################################
 
 ##############################################################################################    
 # Loop function is repeatedly called by WebIOPi
@@ -511,11 +516,11 @@ def loop():
 
         # Determine whether Sun Protection Should Prohibit Opening
         SunProhibit = 'false'
-        if ((SunProtection == 'true') and (TotalTemp > ProtectionTemp) and (CurrentTimeNumeric > SunProtectionStartNumeric) and (CurrentTimeNumeric <  SunProtectionStopNumeric)):
+        if ((SunProtection == 'true') and (TotalTemp >= ProtectionTemp) and (CurrentTimeNumeric >= SunProtectionStartNumeric) and (CurrentTimeNumeric <  SunProtectionStopNumeric)):
             SunProhibit = 'true'
        
         #Check whether Shutters need opening...
-        if ((TodayOpenTime == CurrentTime) and (AutoShutter == 'true')):
+        if ((TodayOpenTimeNumeric == CurrentTimeNumeric) and (AutoShutter == 'true')):
             # ..If they should and are allowed, open them
             if (SunProhibit == 'false'):
                 print(MyRoom + " Auto Opening " + CurrentTime)
@@ -528,7 +533,7 @@ def loop():
             
             
         #Check whether Shutters need closing...
-        if ((TodayCloseTime == CurrentTime) and (AutoShutter == 'true')):
+        if ((TodayCloseTimeNumeric == CurrentTimeNumeric) and (AutoShutter == 'true')):
             print(MyRoom + " Auto Closing " + CurrentTime)
             AutoShuttersClose(MyRoom)
         #
@@ -536,7 +541,7 @@ def loop():
 
         #############################################################################
         #Check whether SunProtection Period is over and Shutters Should be Re-Opened
-        #To allow manual over-ride, only try to close at start of Sun Protection Period
+        #To allow manual over-ride, only try to close if last Sun Protection Command was Open
         #also prevent re-opening after scheduled closing time (or before scheduled opening time)
 
         # Determine whether Schedule should prevent re-Opening
@@ -544,15 +549,23 @@ def loop():
         if (CurrentTimeNumeric < TodayOpenTimeNumeric) or (CurrentTimeNumeric > TodayCloseTimeNumeric):
             ScheduleProhibit = 'true'
         
-        if ((SunProtection == 'true') and (TotalTemp > ProtectionTemp) and (CurrentTime == SunProtectionStart)):
+        #Closing should be at any time during the Sun Protection Period
+        if ((SunProtection == 'true') and (TotalTemp >= ProtectionTemp) and (CurrentTimeNumeric >= SunProtectionStartNumeric) and (CurrentTimeNumeric < SunProtectionStopNumeric) and (SunProtectionLastCommand == 'Open')):
             AutoShuttersClose(MyRoom)
             ShutterConfig[i][16] = 'Close'
             writeShutterConfig()
-
-        if ((SunProtection == 'true') and (CurrentTime == SunProtectionStop) and (SunProtectionLastCommand == 'Close') and (ScheduleProhibit == 'false')):
-            AutoShuttersOpen(MyRoom)
+            print(MyRoom + " Sun Protection Close" + CurrentTime)
+        #Opening at the end - but only if Sun Protection has closed shutters
+        if ((SunProtection == 'true') and (CurrentTimeNumeric == SunProtectionStopNumeric) and (SunProtectionLastCommand == 'Close')):
+            # whether opening is allowed or not by schedule, the last command sent needs to be set
             ShutterConfig[i][16] = 'Open'
-            writeShutterConfig()            
+            writeShutterConfig()
+            # ..if Opening is allowed by schedule, then open it
+            if (ScheduleProhibit == 'false'):
+                AutoShuttersOpen(MyRoom)
+                print(MyRoom + " Sun Protection Re-Open" + CurrentTime)
+
+            
          #
          ###############################################################################
     webiopi.sleep(60)
