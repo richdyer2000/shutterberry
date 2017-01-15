@@ -26,7 +26,7 @@ ul.tab li a {
     display: inline-block;
     color: black;
     text-align: center;
-    padding: 4px 10px;
+    padding: 4px 5px;
     text-decoration: none;
     transition: 0.3s;
     font-size: 8px;
@@ -38,7 +38,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 /* Style the tab content */
 .tabcontent {
     display: none;
-    padding: 6px 12px;
+    padding: 3px 8px;
     border: 1px solid #ccc;
     border-top: none;
 }
@@ -123,7 +123,16 @@ ul.tab li a:focus, .active {background-color: #ccc;}
          .TimeInput {
          	border: 0px solid #DDDDDD;
 				width: 65px;
-        		} 		      		
+        		} 	
+         .Mode {
+         	border: 0px solid #DDDDDD;
+				width: 80px;
+        		} 	
+        	.CalendarLink {
+         	border: 0px solid #DDDDDD;
+				width: 250px;
+        		} 	
+        			      		
         .DefaultText {
          	font-weight:normal;
          	color: #000000;
@@ -153,12 +162,13 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	<div>
 			<ul class="tab">
 			   <li><a href="#" class="tablinks" onclick="openRoom(event, 'AllRooms')">Alle</a></li>
- 				<li><a href="#" class="tablinks" onclick="openRoom(event, 'BedroomBathroom')">Schlafzimmer/Bad-OG</a></li>
+ 				<li><a href="#" class="tablinks" onclick="openRoom(event, 'BedroomBathroom')">Schlaf/Bad-OG</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Office')">Buro</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Spareroom')">Spare Room</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Guestroom')">Gastezimmer</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'GuestBathroom')">Gastebad</a></li>
   				<li><a href="#" class="tablinks" onclick="openRoom(event, 'Kitchen')">Kueche</a></li>
+  				<li><a href="#" class="tablinks" onclick="openRoom(event, 'SmartSwitches')">SmartSwitches</a></li>
 			</ul>
 			</div>
 		
@@ -173,6 +183,41 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	<input type = "checkbox" id="ReOpen">Re-open after Sun Protection Period<br> 
 	<input type = "button" value="Bestaetigung" onclick="SunProtectionUpdate()"><br>
 		</div>
+
+
+		<div id="SmartSwitches" class="tabcontent">
+		<table>
+				<tr>
+						<td>	Switch 1: </td>
+						<td>	<input type = "button" value="Mode" onclick="SwitchMode('Switch1')"><br> </td>
+						<td><div class="Mode"><input type="text" id="Switch1" size="5"></div></td>
+						<td><input type = "checkbox" id="Switch1Tageslicht">Nur nach Sonnenuntergang<br></td> 
+				</tr>
+				<tr>
+						<td>	Switch 2: </td>
+						<td>	<input type = "button" value="Mode" onclick="SwitchMode('Switch2')"><br> </td>
+						<td><div class="Mode"><input type="text" id="Switch2" size="5"></div></td>
+						<td><input type = "checkbox" id="Switch1Tageslicht">Nur nach Sonnenuntergang<br></td> 
+				</tr>
+				<tr>
+						<td>	Switch 3: </td>
+						<td>	<input type = "button" value="Mode" onclick="SwitchMode('Switch3')"><br> </td>
+						<td><div class="Mode"><input type="text" id="Switch3" size="5"></div></td>
+						<td><input type = "checkbox" id="Switch1Tageslicht">Nur nach Sonnenuntergang<br></td> 
+				</tr>
+				<tr>
+						<td>	Switch 4: </td>
+						<td>	<input type = "button" value="Mode" onclick="SwitchMode('Switch4')"><br> </td>
+						<td><div class="Mode"><input type="text" id="Switch4" size="5"></div></td>
+						<td><input type = "checkbox" id="Switch1Tageslicht">Nur nach Sonnenuntergang<br></td> 
+				</tr>
+		</table>	
+		
+		<iframe src="https://calendar.google.com/calendar/embed?showTitle=0&amp;showNav=0&amp;showPrint=0&amp;showCalendars=0&amp;mode=AGENDA&amp;src=qo6dn079enfitacln3mru520c0%40group.calendar.google.com&ctz=Europe/Berlin" style="border: 0" width="400" height="600" frameborder="0" scrolling="no"></iframe>
+
+		</div>
+		
+		
 		
 			<div id="BedroomBathroom" class="tabcontent">
 			<table>
@@ -330,6 +375,12 @@ ul.tab li a:focus, .active {background-color: #ccc;}
 	openRoom(event, "AllRooms") 
 	});
 		
+		
+		function SwitchMode(SwitchNumber) {
+		webiopi().callMacro("SwitchMode", SwitchNumber);
+		//call openRoom to get the actual mode status		
+		openRoom(event, 'SmartSwitches')	
+		}		
 		// Confirm/Bestaetigung button just gets all the values of the elements and passes them to the Python Macro which will write them to a file (/home/pi/ShutterBerry/python/BedroomBathroom.cfg)
 		// and generally do what needs to be done with them.
 		function ConfirmUpdate() {
@@ -436,7 +487,7 @@ ul.tab li a:focus, .active {background-color: #ccc;}
     evt.currentTarget.className += " active";
 	
 	//Don't want to run this for the "All Rooms" page	
-	if(MyRoom!="AllRooms") 	{
+	if(MyRoom!="AllRooms" && MyRoom!="SmartSwitches") 	{
 	// Don't really understand what's going on here - updated from Macro tutorial
 	// Functionally, it gets the Configuration from the file 	(/home/pi/ShutterBerry/python/BedroomBathroom.cfg) via python macro
 	// and then sets values of various html elements 
@@ -483,10 +534,11 @@ ul.tab li a:focus, .active {background-color: #ccc;}
         				}		
         				
 				}
-				
-			
+
         		webiopi().callMacro("getShutterConfig", roomName, updateConfig);
         		}
+        		
+        		
         		if(MyRoom=="AllRooms") 	{
         		
 				document.getElementById("RoomConfig").style.visibility="hidden" ;  
@@ -509,9 +561,25 @@ ul.tab li a:focus, .active {background-color: #ccc;}
  			        				
 				}
 				
-			
         		webiopi().callMacro("getSunProtectionConfig", [] , updateSunProtectionFlags);
         		}
+        		
+        		if(MyRoom=="SmartSwitches") 	{
+        		
+					document.getElementById("RoomConfig").style.visibility="hidden" ;  
+				
+					var mySwitches = ["Switch1","Switch2","Switch3","Switch4"];	
+				         		
+					for (j = 0; j < mySwitches.length; j++) {
+						var updateSwitchMode = function(macro, args, response) {
+							var Switchy = response.split(";");
+							document.getElementById(Switchy[0]).value = Switchy[1];
+						}
+						webiopi().callMacro("getSwitchMode", mySwitches[j] , updateSwitchMode);	
+					}
+				
+        		}        		
+        		
 }			
 		</script>
 </html>

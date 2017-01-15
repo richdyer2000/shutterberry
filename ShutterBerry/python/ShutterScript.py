@@ -5,13 +5,17 @@ import urllib.request as webby
 import sys
 import spidev
 import os
+import numpy
 sys.path.append('/home/pi/ShutterBerry/python')
 from lib_nrf24 import NRF24
+from dateutil.rrule import *
+from dateutil.parser import *
 
 #separate GPIO definition for RF Interface to Arduino
 import RPi.GPIO as RFGPIO
 RFGPIO.setmode(RFGPIO.BCM)
 
+#####################################
 # GPIO pin using BCM numbering 
 def GPIOConfig():
 
@@ -42,17 +46,24 @@ def GPIOConfig():
             GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
         i = i + 1
     ConfigFile.close()
+#
+############################################################################
+
+#######################################################
+#Smart Switch Setup
+def smartswitchSetup():
+    global mySwitches
+    mySwitches = ["Switch1", "Switch2", "Switch3", "Switch4"]
+
 
 ############################################################################
-# This function sends command to Arduino
-def arduinoSend(message):
+# Basic Radio Setup
+def radioSetup(target):
     
-    pipes = [[0xE8, 0xE8, 0xF0, 0xF0, 0xE1], [0xF0, 0xF0, 0xF0, 0xF0, 0xE1]]
+    time.sleep(0.3)
     
     radio = NRF24(RFGPIO, spidev.SpiDev())
     radio.begin(0,18)
-
-    radio.setPayloadSize(1)
     radio.setChannel(0x76)
     radio.setDataRate(NRF24.BR_250KBPS)
     radio.setPALevel(NRF24.PA_MAX)
@@ -60,14 +71,72 @@ def arduinoSend(message):
     radio.enableDynamicPayloads()
     radio.enableAckPayload()
 
+    if (target == 'Shutters'): pipes = [[0xE8, 0xE8, 0xF0, 0xF0, 0xE1], [0xF0, 0xF0, 0xF0, 0xF0, 0xE1]]    
+
+    for i in range(len(mySwitches)):
+        if (target == mySwitches[i]):
+            pipes = [[0xE8, 0xE8, 0xF0, 0xF0, 0xE2 + i], [0xF0, 0xF0, 0xF0, 0xF0, 0xE2 + i]]
     radio.openWritingPipe(pipes[0])
     radio.openReadingPipe(1, pipes[1])
-    #radio.printDetails()
+    return(radio)
 
+    
+#
+############################################################################
+
+
+############################################################################
+# This function sends command to Arduino Switches  
+def arduinoSwitchSend(message, target):
+
+    radio = radioSetup(target)
+
+    receivedString = ""
+    
+    messagesend = list(message)
+    while len(messagesend) < 8:
+        messagesend.append(0)
+
+
+    start = time.time()
+    radio.write(messagesend)
+    print("Commanded " + target + " " + message)
+
+##    if (message == 'status'):
+
+    radio.startListening()
+    while not radio.available(0):
+        time.sleep(0.001)
+        if (time.time() - start) > 0.5:
+            print ("Response from " + target + " Timed Out")
+            radio.stopListening()
+            break
+
+    receivedMessage = []
+    radio.read(receivedMessage, radio.getDynamicPayloadSize())
+    radio.stopListening()
+        
+    print("Received: {}".format(receivedMessage))
+    for n in receivedMessage:
+        if (n >= 32 and n <= 126):
+            receivedString += chr(n)           
+
+    return(receivedString)
+#
+############################################################################
+
+                   
+############################################################################
+# This function sends command to Arduino Shutters
+def arduinoShutterSend(message):
+
+    radio = radioSetup('Shutters')
+
+    start = time.time()
     radio.write(message)
-    print("Commanded Arduino Digital {}".format(message))
-    #Wait a short time to clear buffer
-    time.sleep(1)
+    print("Commanded Arduino Digital {}".format(messagesend))
+ 
+    time.sleep(0.1)  
 #
 ##############################################################################
 
@@ -99,9 +168,10 @@ def getTemps():
                 temp_c = float(temp_string) / 1000.0
             myTemps[y-1] = temp_c
 
-
-    InsideTemp = myTemps[0] #put code in here when sensor actually works!
-    OutsideTemp = myTemps[1]
+    #Outside Temp sensor is very sheltered in a false ceiling outside, the entire building is keeping it warm (or cool).
+    #From trial and error the following fudge works.
+    InsideTemp = myTemps[0] 
+    OutsideTemp = InsideTemp + ((myTemps[1] - InsideTemp)*1.15)
 
     return "%.1f;%.1f" % (InsideTemp, OutsideTemp) 
 #
@@ -202,6 +272,19 @@ def getSunProtectionConfig():
 #
 ########################################################################
 
+#####################################################
+#v.Quick Macro to get SwitchStatus
+@webiopi.macro
+def getSwitchMode(Target):
+
+    message = 'status'
+    SwitchStatus = arduinoSwitchSend(message, Target)
+    if (len(SwitchStatus) == 0): SwitchStatus = "NA"
+    print(Target + ' ' + SwitchStatus)
+    return "%s;%s" % (Target, SwitchStatus)
+#
+#####################################################
+
 ##################################################
 # Macro Just reads LUT with SunRise and Set times
 def SunRiseSetTimes():
@@ -229,38 +312,135 @@ def SunRiseSetTimes():
 #
 ###################################################    
     
+###############################################################################################
+# Macro Accesses Google Calendar for Switching entries
+# Calendar might be quite dynamic, so should get called by loop on each iteration
+# To simplify the main loop, it just returns the expected status of each switch
+def ReadSwitchCalendar():
+
+    #Straight from iCal
+    CalEntries = -1
+    CalEvents = []
+    #Expanded after recursive rules
+    CalExpEntries = -1
+    CalExpEvents = []
+
+    #Targets will return all the distinct switches found in the iCal and their expected status
+    Results = []
+    for i in range(len(mySwitches)):
+        Results.append([mySwitches[i], "OFF"])
+    
+    #In case there is an on-going entry, we need to add an UNTIL clause to prevent endless recurrence.
+    #Only get entries upto 1 week in future which is more than enough
+    tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
+ 
+    UNTIL = ";UNTIL=" + '%0*d' % (4, tomorrow.year) + '%0*d' % (2, tomorrow.month) + '%0*d' % (2, tomorrow.day) + "T000000"
+
+    #Calendar links stored in file so code can be put somewhere public
+    SwitchCalendarLinkFile = open('/home/pi/ShutterBerry/python/SwitchCalendarLink.cfg', 'r')
+    SwitchCalendarLink = SwitchCalendarLinkFile.readline() 
         
-######################################################################################### 
-# Function is called daily to get Hessen Holidays from iCal
+    #Read the Calendar and build a list of CalEvents
+    if (tryLink(SwitchCalendarLink) == True):
+        print('Checking Switch Calendar ' + SwitchCalendarLink)
+       
+        for line in webby.urlopen(SwitchCalendarLink):
+            line = line.decode("utf-8")
+            line = line.replace("\n", "")
+            line = line.replace("\r", "")
+            myvars = line.split(":")
+        
+            if (line == "BEGIN:VEVENT"):
+                CalEntries = CalEntries +1
+                CalEvents.append(["NA", "NA", "NA", "NA"])
+            if ((CalEntries >= 0) and (myvars[0] == "SUMMARY")):
+                CalEvents[CalEntries][0] = myvars[1]
+            if ((CalEntries >= 0) and (myvars[0] == "RRULE")):
+                # Google Calendar uses BYDAY, dateutil expects BYWEEKDAY. Add 'UNTIL' as well
+                line = line.replace("BYDAY", "BYWEEKDAY") 
+                CalEvents[CalEntries][1] = line + UNTIL
+            if ((CalEntries >= 0) and ((myvars[0])[:7] == "DTSTART")):
+                CalEvents[CalEntries][2] = myvars[1]
+            if ((CalEntries >= 0) and ((myvars[0])[:5] == "DTEND")):
+                CalEvents[CalEntries][3] = myvars[1]
+
+    #If the Calendar has Events, then expand them using rrules
+    if (len(CalEvents[:]) != 0):
+        for i in range(len(CalEvents[:])):
+            Event = CalEvents[i][0]
+            Rule = CalEvents[i][1]
+            Start = parse(CalEvents[i][2], ignoretz=True)
+            Stop = parse(CalEvents[i][3], ignoretz=True)
+            Duration = Stop - Start
+
+            #Only append to the Expanded Events if the Switch is defined
+            if Event in mySwitches:
+            
+                if (Rule == "NA"):
+                    CalExpEvents.append([Event, Start, Start+Duration])
+                
+                if (Rule != "NA"):
+                    StartList = (list(rrulestr(Rule,dtstart=Start)))
+                    for j in range(len(StartList)):
+                        CalExpEvents.append([Event, StartList[j], StartList[j]+Duration])
+
+        #Now go through the CalExpEvents - if there's a switch meant to be on, then update the Results
+        for i in range(len(CalExpEvents)):
+ 
+            if CalExpEvents[i][1] <= datetime.datetime.now() and CalExpEvents[i][2] >= datetime.datetime.now():
+                Results[(mySwitches.index(CalExpEvents[i][0]))][1] = "ON"
+    
+
+   
+    return(Results)
+    
+
+##########################################
+# Function to test a web link for iCal etc 
+def tryLink(myLink):
+    try:
+        webby.urlopen(myLink)
+        return True
+    except:
+        print(myLink + " page not found, check link or internet connection")
+        return False
+
+        
+############################################################################################################## 
+# Function to get Hessen Holidays from iCal and write to a file. By writing to a file,
+# the system can still run even if the oCal is unavailable for some reason - the holidays are not very dynamic!
 def getHolidays():
   
-    # Create 2 lists - Holiday Dates and Holiday Descriptions
-    HolidayDates = []
-    HolidayDescriptions = []
 
     HolidaysLink = "http://www.officeholidays.com/ics/ics_region_iso.php?region_iso=HE&tbl_country=Germany"
-    print("Retrieving Holidays from " + HolidaysLink)
 
-    for line in webby.urlopen(HolidaysLink):
-        line = line.decode("utf-8")
-        line = line.replace("\n", "")
-        line = line.replace("\r", "")
-        myvars = line.split(":")
+    #First try link, then only continue if it's accessible
+    if (tryLink(HolidaysLink) == True):
+        print("Retrieving Holidays from " + HolidaysLink)
 
-        if (myvars[0] == "DTSTART;VALUE=DATE") :
-            HolidayDates.append(myvars[1])
+        HolidayDates = []
+        HolidayDescriptions = []
+        
+        for line in webby.urlopen(HolidaysLink):
+            line = line.decode("utf-8")
+            line = line.replace("\n", "")
+            line = line.replace("\r", "")
+            myvars = line.split(":")
 
-        if (myvars[0] == "SUMMARY;LANGUAGE=en-us") :
-            HolidayDescriptions.append(myvars[2])
+            if (myvars[0] == "DTSTART;VALUE=DATE") :
+                HolidayDates.append(myvars[1])
 
-    print ('%s' % len(HolidayDates) + ' Holidays Found')
-            
-    # Print date to file if Holiday Description does not contain "[Not a public holiday]"
-    iCalHolidaysFile = open('/home/pi/ShutterBerry/python/iCalHolidays.txt', 'w')
-    for index in range(len(HolidayDates)):
-        if ("[Not a public holiday]" not in HolidayDescriptions[index]) :
-            iCalHolidaysFile.write(HolidayDates[index] + ':' + HolidayDescriptions[index] + '\n')
-    iCalHolidaysFile.close()          
+            if (myvars[0] == "SUMMARY;LANGUAGE=en-us") :
+                HolidayDescriptions.append(myvars[2])
+
+        print ('%s' % len(HolidayDates) + ' Holidays Found')
+                
+        # Print date to file if Holiday Description does not contain "[Not a public holiday]"
+        iCalHolidaysFile = open('/home/pi/ShutterBerry/python/iCalHolidays.txt', 'w')
+        for index in range(len(HolidayDates)):
+            if ("[Not a public holiday]" not in HolidayDescriptions[index]) :
+                iCalHolidaysFile.write(HolidayDates[index] + ':' + HolidayDescriptions[index] + '\n')
+        iCalHolidaysFile.close()          
 #
 #########################################################################################
    
@@ -268,11 +448,11 @@ def getHolidays():
 # setup function is automatically called at WebIOPi startup
 def setup():
     GPIOConfig()
+    smartswitchSetup()
     readShutterConfig()
     SunRiseSetTimes()
     getSunProtectionConfig()
     getTemps()
-    getHolidays()
 #
 #############################################################              
 
@@ -285,33 +465,34 @@ def VeluxControl(MyRoom, MyStatus):
 
     Tries = 2
     ButtonPress = 0.5
-
-    for i in range(NumberOfPins):
-        if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
-            for x in range(Tries):
-                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
-                time.sleep(ButtonPress)
-                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
-                time.sleep(ButtonPress)
-            i = NumberOfPins + 1
-
+    if (OutsideTemp >= 0):
+        for i in range(NumberOfPins):
+            if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
+                for x in range(Tries):
+                    GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
+                    time.sleep(ButtonPress)
+                    GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
+                    time.sleep(ButtonPress)
+                i = NumberOfPins + 1
+    if (OutsideTemp < 0):
+        print("too cold for the Velux rollers")
 # Baier control sets the actual GPIOs for the Baier Shutters    
 @webiopi.macro
 def BaierControl(MyRoom, MyStatus):
     ButtonPress = 0.5
-
-    
+        
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
             #Some Baier shutters are actually controlled via arduino Nano 
             if (GPIOConfig[2][i] == 'ARD'):
                 message = list(str(GPIOConfig[3][i]))
-                arduinoSend(message)
+                arduinoShutterSend(message)
             if (GPIOConfig[2][i] == 'RPI'):   
                 GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
                 GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
         i = NumberOfPins + 1
+
 #
 ######################################################################################
 
@@ -406,6 +587,17 @@ def AutoShuttersClose(MyRoom):
 #
 ##############################################################################################
 
+##########################################################################################
+# 
+@webiopi.macro
+def SwitchMode(MySwitch):
+    message = 'mode'
+    arduinoSwitchSend(message, MySwitch)
+
+#
+##############################################################################################
+
+
 ##############################################################################
 # Turns time in format HH:MM to integer minutes of day to allow comparisons
 def TimeNumeric(MyTime):
@@ -433,17 +625,18 @@ def loop():
     CurrentDOW = int(now.strftime('%w'))
     CurrentDOY = int(now.strftime('%j'))
 
-    SunRiseUTC = SunRiseSetUTC[1][CurrentDOY + 1].split(":")
-    SunSetUTC = SunRiseSetUTC[2][CurrentDOY + 1].split(":")
+    SunRiseUTC = SunRiseSetUTC[1][CurrentDOY - 1].split(":")
+    SunSetUTC = SunRiseSetUTC[2][CurrentDOY - 1].split(":")
 
     SunRiseLT = '%0*d' %(2, int(SunRiseUTC[0]) + UTCOffset) + ":" + SunRiseUTC[1] 
     SunSetLT = '%0*d' %(2, int(SunSetUTC[0]) + UTCOffset) + ":" +  SunSetUTC[1] 
 
     #Current date in format yyyymmdd
     iCalDate = '%0*d' % (4, now.year) + '%0*d' % (2, now.month) + '%0*d' % (2, now.day)
-
-    # At 03:00 each day, update the holidays for the year and write to a local file
-    if (CurrentTime == '03:00'):
+    iCalTime = '%0*d' % (4, now.year) + '%0*d' % (2, now.month) + '%0*d' % (2, now.day) + 'T' + '%0*d' % (2, now.hour) + '%0*d' % (2, now.minute) + '%0*d' % (2, now.second)
+   
+    # At 03:00 each Sunday, update the holidays for the year and write to a local file
+    if ((CurrentTime == '03:00') and (CurrentDOW == 0)):
         getHolidays()
 
     # Check for Holiday
@@ -459,6 +652,9 @@ def loop():
             print('today is ' + myvars[1])
     iCalHolidaysFile.close()        
 
+
+    ################################
+    #Shutters
     for i in range(NumberOfRooms):
         MyRoom = ShutterConfig[i][0]
         WeekdayUp = ShutterConfig[i][1]
@@ -568,7 +764,21 @@ def loop():
             
          #
          ###############################################################################
-    webiopi.sleep(60)
 
+    #End of Shutters
+    ###############################
+
+    ##########################################################################################################################
+    #For the switches, we ignore the mode - it may have been change at the switch itself, so we would have to ask for it here
+    #It's easier just to send the status as scheduled each minute and each switch can decide what to do with it
+    SwitchCommands = ReadSwitchCalendar()
+    if (len(SwitchCommands) != 0):
+        for i in range(len(SwitchCommands)):
+            arduinoSwitchSend(SwitchCommands[i][1], SwitchCommands[i][0])
+    
+    #######################################
+         
+    webiopi.sleep(60)
+    
     
     
