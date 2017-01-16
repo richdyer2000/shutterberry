@@ -100,15 +100,13 @@ def arduinoSwitchSend(message, target):
 
     start = time.time()
     radio.write(messagesend)
-    print("Commanded " + target + " " + message)
-
-##    if (message == 'status'):
+    #print("Commanded " + target + " " + message
 
     radio.startListening()
     while not radio.available(0):
         time.sleep(0.001)
         if (time.time() - start) > 0.5:
-            print ("Response from " + target + " Timed Out")
+            #print ("Response from " + target + " Timed Out")
             radio.stopListening()
             break
 
@@ -116,7 +114,7 @@ def arduinoSwitchSend(message, target):
     radio.read(receivedMessage, radio.getDynamicPayloadSize())
     radio.stopListening()
         
-    print("Received: {}".format(receivedMessage))
+    #print("Received: {}".format(receivedMessage))
     for n in receivedMessage:
         if (n >= 32 and n <= 126):
             receivedString += chr(n)           
@@ -134,7 +132,7 @@ def arduinoShutterSend(message):
 
     start = time.time()
     radio.write(message)
-    print("Commanded Arduino Digital {}".format(messagesend))
+    print("Commanded Arduino Digital {}".format(message))
  
     time.sleep(0.1)  
 #
@@ -616,7 +614,8 @@ def loop():
     TotalTemp = InsideTemp + OutsideTemp
     
     now = datetime.datetime.now()
-    UTCOffset = (-time.timezone/3600) + time.daylight
+    UTCOffset = (-time.timezone/3600) + time.localtime().tm_isdst
+    
    
     # Current Time is in format 00:00
     CurrentTime = '%0*d' % (2, now.hour) + ':' '%0*d' % (2, now.minute)
@@ -629,7 +628,8 @@ def loop():
     SunSetUTC = SunRiseSetUTC[2][CurrentDOY - 1].split(":")
 
     SunRiseLT = '%0*d' %(2, int(SunRiseUTC[0]) + UTCOffset) + ":" + SunRiseUTC[1] 
-    SunSetLT = '%0*d' %(2, int(SunSetUTC[0]) + UTCOffset) + ":" +  SunSetUTC[1] 
+    SunSetLT = '%0*d' %(2, int(SunSetUTC[0]) + UTCOffset) + ":" +  SunSetUTC[1]
+    #print (SunRiseLT, SunSetLT)
 
     #Current date in format yyyymmdd
     iCalDate = '%0*d' % (4, now.year) + '%0*d' % (2, now.month) + '%0*d' % (2, now.day)
