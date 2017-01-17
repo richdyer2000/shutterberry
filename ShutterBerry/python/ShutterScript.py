@@ -134,7 +134,7 @@ def arduinoShutterSend(message):
     radio.write(message)
     print("Commanded Arduino Digital {}".format(message))
  
-    time.sleep(0.1)  
+    time.sleep(0.5)  
 #
 ##############################################################################
 
@@ -340,7 +340,7 @@ def ReadSwitchCalendar():
         
     #Read the Calendar and build a list of CalEvents
     if (tryLink(SwitchCalendarLink) == True):
-        print('Checking Switch Calendar ' + SwitchCalendarLink)
+        #print('Checking Switch Calendar ' + SwitchCalendarLink)
        
         for line in webby.urlopen(SwitchCalendarLink):
             line = line.decode("utf-8")
