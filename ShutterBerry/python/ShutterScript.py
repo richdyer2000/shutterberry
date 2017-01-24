@@ -330,7 +330,7 @@ def ReadSwitchCalendar():
     
     #In case there is an on-going entry, we need to add an UNTIL clause to prevent endless recurrence.
     #Only get entries upto 1 week in future which is more than enough
-    tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
+    tomorrow = datetime.datetime.now() + datetime.timedelta(days=7)
  
     UNTIL = ";UNTIL=" + '%0*d' % (4, tomorrow.year) + '%0*d' % (2, tomorrow.month) + '%0*d' % (2, tomorrow.day) + "T000000"
 
@@ -770,15 +770,19 @@ def loop():
 
     ##########################################################################################################################
     #For the switches, we ignore the mode - it may have been change at the switch itself, so we would have to ask for it here
-    #It's easier just to send the status as scheduled each minute and each switch can decide what to do with it
+    #It's easier just to send the status as scheduled each minute and each switch can decide what to do with i
+    print (CurrentTime)
     SwitchCommands = ReadSwitchCalendar()
+    print (SwitchCommands)
     if (len(SwitchCommands) != 0):
         for i in range(len(SwitchCommands)):
             arduinoSwitchSend(SwitchCommands[i][1], SwitchCommands[i][0])
     
     #######################################
-         
-    webiopi.sleep(60)
+
+    #sleep until start of the next minute
+    time.sleep(-time.time() %60)     
+
     
     
     
