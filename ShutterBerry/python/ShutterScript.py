@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import webiopi
 import datetime
 import time
@@ -12,9 +13,11 @@ from lib_nrf24 import NRF24
 from dateutil.rrule import *
 from dateutil.parser import *
 
-#separate GPIO definition for RF Interface to Arduino
-import RPi.GPIO as RFGPIO
-RFGPIO.setmode(RFGPIO.BCM)
+#Just use the normal GPIO definition
+import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
 
 #####################################
 # GPIO pin using BCM numbering 
@@ -24,7 +27,8 @@ def GPIOConfig():
     global GPIOConfig
     global GPIO
     
-    GPIO = webiopi.GPIO
+
+
     NumberOfPins = 18
     GPIOConfig = [[0 for x in range(NumberOfPins)] for y in range(4)]
 
@@ -43,8 +47,8 @@ def GPIOConfig():
         GPIOConfig[3][i] = int(myvars[3])
         #if it's a shutter controlled by the RPI, set the GPIO pins
         if (GPIOConfig[2][i] == 'RPI'):
-            GPIO.setFunction(GPIOConfig[3][i], GPIO.OUT)
-            GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
+            GPIO.setup(GPIOConfig[3][i], GPIO.OUT)
+            GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
         i = i + 1
     ConfigFile.close()
 #
@@ -63,7 +67,7 @@ def radioSetup(target):
     
     time.sleep(0.3)
     
-    radio = NRF24(RFGPIO, spidev.SpiDev())
+    radio = NRF24(GPIO, spidev.SpiDev())
     radio.begin(0,18)
     radio.setChannel(0x76)
     radio.setDataRate(NRF24.BR_250KBPS)
@@ -438,9 +442,9 @@ def VeluxControl(MyRoom, MyStatus):
         for i in range(NumberOfPins):
             if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
                 for x in range(Tries):
-                    GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
+                    GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                     time.sleep(ButtonPress)
-                    GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
+                    GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
                     time.sleep(ButtonPress)
                 i = NumberOfPins + 1
     if (OutsideTemp < 0):
@@ -457,9 +461,9 @@ def BaierControl(MyRoom, MyStatus):
                 message = list(str(GPIOConfig[3][i]))
                 arduinoShutterSend(message)
             if (GPIOConfig[2][i] == 'RPI'):   
-                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.LOW)
+                GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
-                GPIO.digitalWrite(GPIOConfig[3][i], GPIO.HIGH)
+                GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
         i = NumberOfPins + 1
 
 #
