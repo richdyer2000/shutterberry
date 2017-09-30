@@ -6,6 +6,7 @@ import sys
 import spidev
 import os
 import numpy
+from astral import Astral
 sys.path.append('/home/pi/ShutterBerry/python')
 from lib_nrf24 import NRF24
 from dateutil.rrule import *
@@ -283,32 +284,6 @@ def getSwitchMode(Target):
 #
 #####################################################
 
-##################################################
-# Macro Just reads LUT with SunRise and Set times
-def SunRiseSetTimes():
-    #Ultimately want to use PyEphem (see www.Rhodesmill.org) but can't get it working. Just use LUT created from www.timeanddate.com
-    #Sunrise/Set times are for Darmstadt, Germany in GMT.
-
-    # For now, just dump everything in a 3x366 array and declare that as global.
-    global SunRiseSetUTC
-    SunRiseSetUTC = [[0 for x in range(366)] for y in range(3)]
-
-
-    ConfigFile = open('/home/pi/ShutterBerry/python/SunRiseSet.cfg', 'r')
-    for line in ConfigFile:
-        #remove new line and carriage returns
-        line = line.replace("\w", "")
-        line = line.replace("\n", "")
-        line = line.replace("\r", "")
-        myvars = line.split(",")
-        SunRiseSetIndex = int(myvars[0]) -1 
-        SunRiseSetUTC[0][SunRiseSetIndex] = myvars[0]
-        SunRiseSetUTC[1][SunRiseSetIndex] = myvars[1]
-        SunRiseSetUTC[2][SunRiseSetIndex] = myvars[2]
-     
-    ConfigFile.close()
-#
-###################################################    
     
 ###############################################################################################
 # Macro Accesses Google Calendar for Switching entries
@@ -340,8 +315,6 @@ def ReadSwitchCalendar():
         
     #Read the Calendar and build a list of CalEvents
     if (tryLink(SwitchCalendarLink) == True):
-        #print('Checking Switch Calendar ' + SwitchCalendarLink)
-       
         for line in webby.urlopen(SwitchCalendarLink):
             line = line.decode("utf-8")
             line = line.replace("\n", "")
@@ -370,7 +343,7 @@ def ReadSwitchCalendar():
             Start = parse(CalEvents[i][2], ignoretz=True)
             Stop = parse(CalEvents[i][3], ignoretz=True)
             Duration = Stop - Start
-
+        
             #Only append to the Expanded Events if the Switch is defined
             if Event in mySwitches:
             
@@ -384,7 +357,6 @@ def ReadSwitchCalendar():
 
         #Now go through the CalExpEvents - if there's a switch meant to be on, then update the Results
         for i in range(len(CalExpEvents)):
- 
             if CalExpEvents[i][1] <= datetime.datetime.now() and CalExpEvents[i][2] >= datetime.datetime.now():
                 Results[(mySwitches.index(CalExpEvents[i][0]))][1] = "ON"
     
@@ -448,7 +420,6 @@ def setup():
     GPIOConfig()
     smartswitchSetup()
     readShutterConfig()
-    SunRiseSetTimes()
     getSunProtectionConfig()
     getTemps()
 #
@@ -624,12 +595,16 @@ def loop():
     CurrentDOW = int(now.strftime('%w'))
     CurrentDOY = int(now.strftime('%j'))
 
-    SunRiseUTC = SunRiseSetUTC[1][CurrentDOY - 1].split(":")
-    SunSetUTC = SunRiseSetUTC[2][CurrentDOY - 1].split(":")
 
+    # Get Sun Rise and Sun set Times from Astral module.   
+    a=Astral()
+    MyLat = 49.878
+    MyLong = 8.64
+    MyElevation = -3
+    SunRiseUTC = a.time_at_elevation_utc(MyElevation, 1, datetime.datetime.today(), MyLat, MyLong).strftime('%H:%M').split(":")
+    SunSetUTC = a.time_at_elevation_utc(MyElevation, -1, datetime.datetime.today(), MyLat, MyLong).strftime('%H:%M').split(":")
     SunRiseLT = '%0*d' %(2, int(SunRiseUTC[0]) + UTCOffset) + ":" + SunRiseUTC[1] 
     SunSetLT = '%0*d' %(2, int(SunSetUTC[0]) + UTCOffset) + ":" +  SunSetUTC[1]
-    #print (SunRiseLT, SunSetLT)
 
     #Current date in format yyyymmdd
     iCalDate = '%0*d' % (4, now.year) + '%0*d' % (2, now.month) + '%0*d' % (2, now.day)
@@ -771,12 +746,13 @@ def loop():
     ##########################################################################################################################
     #For the switches, we ignore the mode - it may have been change at the switch itself, so we would have to ask for it here
     #It's easier just to send the status as scheduled each minute and each switch can decide what to do with i
-    print (CurrentTime)
-    SwitchCommands = ReadSwitchCalendar()
-    print (SwitchCommands)
-    if (len(SwitchCommands) != 0):
-        for i in range(len(SwitchCommands)):
-            arduinoSwitchSend(SwitchCommands[i][1], SwitchCommands[i][0])
+##
+##    print (CurrentTime)
+##    SwitchCommands = ReadSwitchCalendar()
+##    print (SwitchCommands)
+##    if (len(SwitchCommands) != 0):
+##        for i in range(len(SwitchCommands)):
+##            arduinoSwitchSend(SwitchCommands[i][1], SwitchCommands[i][0])
     
     #######################################
 
