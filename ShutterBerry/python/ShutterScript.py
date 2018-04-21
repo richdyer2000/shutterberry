@@ -7,6 +7,7 @@ import sys
 import spidev
 import os
 import numpy
+import socket
 from astral import Astral
 sys.path.append('/home/pi/ShutterBerry/python')
 from lib_nrf24 import NRF24
@@ -75,8 +76,7 @@ def radioSetup(target):
     radio.setAutoAck(True)
     radio.enableDynamicPayloads()
     radio.enableAckPayload()
-
-    if (target == 'Shutters'): pipes = [[0xE8, 0xE8, 0xF0, 0xF0, 0xE1], [0xF0, 0xF0, 0xF0, 0xF0, 0xE1]]    
+    radio.setRetries(15,15)
 
     for i in range(len(mySwitches)):
         if (target == mySwitches[i]):
@@ -131,15 +131,21 @@ def arduinoSwitchSend(message, target):
                    
 ############################################################################
 # This function sends command to Arduino Shutters
-def arduinoShutterSend(message):
+def ShutterSlaveSend(message):
 
-    radio = radioSetup('Shutters')
 
-    start = time.time()
-    radio.write(message)
-    print("Commanded Arduino Digital {}".format(message))
+    TCP_IP = '192.168.178.40' # this IP of ShutterBerrySlave
+    TCP_PORT = 5015
+    BUFFER_SIZE = 1024
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((TCP_IP, TCP_PORT))
+    s.send(str(message).encode())
+    data = s.recv(BUFFER_SIZE)
+    s.close()
+
+    print ("Shutter Slave Acknowledged:", data)
  
-    time.sleep(0.5)  
 #
 ##############################################################################
 
@@ -436,7 +442,7 @@ def setup():
 @webiopi.macro
 def VeluxControl(MyRoom, MyStatus):
 
-    Tries = 2
+    Tries = 1
     ButtonPress = 0.5
     if (OutsideTemp >= 0):
         for i in range(NumberOfPins):
@@ -458,8 +464,8 @@ def BaierControl(MyRoom, MyStatus):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
             #Some Baier shutters are actually controlled via arduino Nano 
             if (GPIOConfig[2][i] == 'ARD'):
-                message = list(str(GPIOConfig[3][i]))
-                arduinoShutterSend(message)
+                message = GPIOConfig[3][i]
+                ShutterSlaveSend(message)
             if (GPIOConfig[2][i] == 'RPI'):   
                 GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
