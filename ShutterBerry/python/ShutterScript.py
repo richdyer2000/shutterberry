@@ -133,18 +133,26 @@ def arduinoSwitchSend(message, target):
 # This function sends command to Arduino Shutters
 def ShutterSlaveSend(message):
 
-
+    MyConnection = False
     TCP_IP = '192.168.178.40' # this IP of ShutterBerrySlave
     TCP_PORT = 5015
     BUFFER_SIZE = 1024
-
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((TCP_IP, TCP_PORT))
-    s.send(str(message).encode())
-    data = s.recv(BUFFER_SIZE)
-    s.close()
+    s.settimeout(1.0)
+    try:
+        s.connect((TCP_IP, TCP_PORT))
+        MyConnection = True
+    except:
+        print ("Cannot connect to Shutter Slave")
 
-    print ("Shutter Slave Acknowledged:", data)
+
+    if (MyConnection == True):
+        s.send(str(message).encode())
+        data = s.recv(BUFFER_SIZE)
+        s.close()
+        print ("Shutter Slave Acknowledged:", data)
+
+
  
 #
 ##############################################################################
@@ -441,28 +449,25 @@ def setup():
 # Velux control sets the actual GPIOs. Retries feature mitigates less reliable RF Link
 @webiopi.macro
 def VeluxControl(MyRoom, MyStatus):
-
-    Tries = 1
-    ButtonPress = 0.5
+    ButtonPress = 0.25
     if (OutsideTemp >= 0):
         for i in range(NumberOfPins):
             if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
-                for x in range(Tries):
-                    GPIO.output(GPIOConfig[3][i], GPIO.LOW)
-                    time.sleep(ButtonPress)
-                    GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
-                    time.sleep(ButtonPress)
-                i = NumberOfPins + 1
-    if (OutsideTemp < 0):
+                GPIO.output(GPIOConfig[3][i], GPIO.LOW)
+                time.sleep(ButtonPress)
+                GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
+            i = NumberOfPins + 1
+    if (OutsideTemp < -2):
         print("too cold for the Velux rollers")
+        
 # Baier control sets the actual GPIOs for the Baier Shutters    
 @webiopi.macro
 def BaierControl(MyRoom, MyStatus):
-    ButtonPress = 0.5
+    ButtonPress = 0.25
         
     for i in range(NumberOfPins):
         if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
-            #Some Baier shutters are actually controlled via arduino Nano 
+            #Some Baier shutters are controlled via Slave Pi (formerly and arduino Nano) 
             if (GPIOConfig[2][i] == 'ARD'):
                 message = GPIOConfig[3][i]
                 ShutterSlaveSend(message)
