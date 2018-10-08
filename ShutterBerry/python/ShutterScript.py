@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import xmltodict
+import math
 import webiopi
 import datetime
 import time
@@ -8,6 +10,8 @@ import spidev
 import os
 import numpy
 import socket
+import telnetlib
+import MySQLdb
 from astral import Astral
 sys.path.append('/home/pi/ShutterBerry/python')
 from lib_nrf24 import NRF24
@@ -18,7 +22,6 @@ from dateutil.parser import *
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-
 
 #####################################
 # GPIO pin using BCM numbering 
@@ -133,24 +136,50 @@ def arduinoSwitchSend(message, target):
 # This function sends command to Arduino Shutters
 def ShutterSlaveSend(message):
 
-    MyConnection = False
-    TCP_IP = '192.168.178.40' # this IP of ShutterBerrySlave
+    print ("Sending Shutter Slave:", message)
+    TCP_IP = 'ShutterSlave' # Let router resolve address of ShutterBerrySlave
     TCP_PORT = 5015
     BUFFER_SIZE = 1024
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(1.0)
+
+    #first try socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+    except socket.error as e:
+        print ("Error creating socket: %s", e)
+        print ("Cannot vreate socket, ", message, " not sent")
+        return
+        
+    #second try host
     try:
         s.connect((TCP_IP, TCP_PORT))
-        MyConnection = True
-    except:
-        print ("Cannot connect to Shutter Slave")
+    except socket.gaierror as e:
+        print ("Address related error connecting to server: %s", e)
+        print ("Cannot connect to Shutter Slave, ", message, " not sent")
+        return
+    except socket.error as e:
+        print ("Connection error: %s", e)
+        print ("Cannot connect to Shutter Slave, ", message, " not sent")
+        return
 
-
-    if (MyConnection == True):
+    #third try send data
+    try:
         s.send(str(message).encode())
-        data = s.recv(BUFFER_SIZE)
+    except socket.error as e:
+        print ("Cannot send to server: %s", e)
+        print ("Cannot send to Shutter Slave, ", message, " not sent")
         s.close()
+        return
+
+    try:
+        data = s.recv(BUFFER_SIZE)
         print ("Shutter Slave Acknowledged:", data)
+        s.close()
+    except socket.error as e:
+        print ("Error Receiving Data: %s", e)
+        print ("Shutter Slave Failed to Acknowledge:", data)
+        s.close()
+        return
 
 
  
@@ -188,7 +217,7 @@ def getTemps():
     #Outside Temp sensor is very sheltered in a false ceiling outside, the entire building is keeping it warm (or cool).
     #From trial and error the following fudge works.
     InsideTemp = myTemps[0] 
-    OutsideTemp = InsideTemp + ((myTemps[1] - InsideTemp)*1.15)
+    OutsideTemp = myTemps[1]
 
     return "%.1f;%.1f" % (InsideTemp, OutsideTemp) 
 #
@@ -449,10 +478,14 @@ def setup():
 # Velux control sets the actual GPIOs. Retries feature mitigates less reliable RF Link
 @webiopi.macro
 def VeluxControl(MyRoom, MyStatus):
-    ButtonPress = 0.25
-    if (OutsideTemp >= 0):
+    ButtonPress = 0.5
+    if (OutsideTemp >= -2):
         for i in range(NumberOfPins):
             if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
+                GPIO.output(GPIOConfig[3][i], GPIO.LOW)
+                time.sleep(ButtonPress)
+                GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
+                time.sleep(ButtonPress)
                 GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
                 GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
@@ -471,6 +504,7 @@ def BaierControl(MyRoom, MyStatus):
             if (GPIOConfig[2][i] == 'ARD'):
                 message = GPIOConfig[3][i]
                 ShutterSlaveSend(message)
+                time.sleep(ButtonPress)
             if (GPIOConfig[2][i] == 'RPI'):   
                 GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
@@ -591,12 +625,299 @@ def TimeNumeric(MyTime):
 #
 ##############################################################################
 
+################################################################################################################
+#Weather Factor is the approx. solar energy (kWh) we expect to receive at equinox, depending weather forecast from 12-6pm.
+#This is also (very) approximately how much we can expect it to raise the WWTankTemp by.
+#If it looks like we'll collect, we can reduce the target temp used by the burner in the morning
+def setTodaysWWTargetTemps():
+
+    db = MySQLdb.connect(host="DISKSTATION", user="shutter", passwd="berry", db="Heating")
+    WWTargetTempStandard = 48 
+    WWTargetTempReduced = 40
+    WWTargetTempMin= 35
+
+    try:
+        file = webby.urlopen('http://www.yr.no/place/Germany/Hesse/Traisa/forecast.xml')
+        data = file.read()
+        file.close()
+        data = xmltodict.parse(data)
+
+        symbols = []
+        times = []
+        for time in data['weatherdata']['forecast']['tabular']['time']:
+            times.append(time['@from'])
+            symbols.append(time['symbol']['@name'])
+        print(times)
+        print(symbols)
+
+        now = datetime.datetime.now() 
+        OurPeriod = '%0*d' % (4, now.year) + '-' + '%0*d' % (2, now.month) + '-' + '%0*d' % (2, now.day) + 'T12:00:00'
+        weather12to6 = symbols[times.index(OurPeriod)]
+        print(weather12to6)
+        
+        
+    except:
+        #if it doesn't work, we have not much to lose by going for partly cloudy.
+        weather12to6 = 'Partly cloudy'
+        print('Cannot Find 12-18 Weather for Today')
+            
+        
+    #All these are better than nothing. Rain doesn't make any difference over cloud and we don't care whether we have thunder.
+    weather12to6 = weather12to6.replace(" and thunder", "")
+    NotTheBest = ['Partly cloudy', 'Light rain showers' , 'Rain showers', 'Heavy rain showers']  
+    WeatherFactor = 0
+    if weather12to6 == 'Clear sky':
+        WeatherFactor = 20
+    if weather12to6 == 'Fair':
+        WeatherFactor = 10
+    if weather12to6 in NotTheBest:
+        WeatherFactor = 5
+
+    now = datetime.datetime.now()
+    Today = '%0*d' % (4, now.year) + '-' + '%0*d' % (2, now.month) + '-' + '%0*d' % (2, now.day)
+    print(Today)
+    CurrentDOY = int(now.strftime('%j'))
+    
+    PredictedSolarInput = WeatherFactor * (1-math.cos(CurrentDOY*3.142/180))
+    WWTarget1 = round(WWTargetTempStandard - PredictedSolarInput)
+    if WWTarget1 < WWTargetTempReduced:
+        WWTarget1 = WWTargetTempReduced
+    WWTarget2 = round(WWTargetTempStandard - PredictedSolarInput)
+    if WWTarget2 < WWTargetTempMin:
+        WWTarget2 = WWTargetTempMin
+
+
+    try:
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM WarmWaterTargets WHERE Day = '%s'" % Today)
+        db.commit()
+        cursor.execute("INSERT INTO WarmWaterTargets (Day, WarmWaterTarget1, WarmWaterTarget2, WarmWaterTarget3) VALUES (%s, %s, %s, %s)", (Today, WWTarget1, WWTarget2, WWTargetTempStandard))
+        db.commit()
+        db.close()
+    except:
+        print('cannot write WW target Temps')
+#################################################################################
+        
+
+##############################################################################
+# This function handles gets Data from the Viessmann 200-W using established connection
+def GetViessmannData(connection, command):
+
+    encodedcommand = (command + ' \n').encode()
+    
+
+    data = ""
+    while data != 'vctrld>':
+        data = connection.recv(1024).decode()
+    
+    connection.send(encodedcommand) 
+    data = connection.recv(1024).decode().split(" ")[0]
+
+    if (data != 'ERR:') and (data != 'OK'):
+
+        try:
+            data=float(data)
+        except:
+            data=667
+            
+    return data
+
+##############################################################################
+# This function handles gets Data from the Viessmann 200-W using established connection
+def SetViessmannData(connection, command):
+
+    command = command + ' \n'
+    command = command.encode()
+
+    data = ""
+    while data != 'vctrld>':
+        data = connection.recv(1024).decode()
+
+    connection.send(command) 
+
+##############################################################################
+# This function handles the Viessmann Vitodens 200-W
+# Data are logged in a MySQL Database
+# The function of the Heating is also checked as this doesn't quite work correctly
+def GetAndSetHeating():
+
+    now = datetime.datetime.now()
+
+    DefaultTempRaumSoll = 21
+    DefaultNeigung = 0.4
+    DefaultNiveau = 0
+    DefaultWWTargetTemp = 48
+    HeatingForceOff = 23.5
+    HeatingForceOn = 22
+    WWTarget1Time = '07:30'
+    WWTarget2Time = '16:00'
+
+    Today = '%0*d' % (4, now.year) + '-' + '%0*d' % (2, now.month) + '-' + '%0*d' % (2, now.day)
+    CurrentTime = '%0*d' % (2, now.hour) + ':' + '%0*d' % (2, now.minute)
+    minutenow = now.minute
+    loginterval = 10
+
+    getTemps()    
+    TempInnen = InsideTemp
+
+    TCP_IP = 'localhost'
+    TCP_PORT = 3002
+    BUFFER_SIZE = 1024
+
+    #first try socket
+    try:
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connection.settimeout(5)
+    except socket.error as e:
+        print ("Error creating socket: %s", e)
+        return
+        
+    #second try host
+    try:
+        connection.connect((TCP_IP, TCP_PORT))
+    except socket.gaierror as e:
+        print ("Address related error connecting to server: %s", e)
+        return
+    except socket.error as e:
+        print ("Connection error: %s", e)
+        return
+    else:
+        
+
+        TempRaumSoll = GetViessmannData(connection, 'getTempRaumSollHK2')
+        PumpHK2 = GetViessmannData(connection, 'getPumpeStatusHK2')
+        ModeHK2 = GetViessmannData(connection, 'getBetriebsart')
+        TempVLHK2 = GetViessmannData(connection, 'getTempVListM2')
+
+        TempAussen = GetViessmannData(connection, 'getTempAussen')
+
+        SolarHours=GetViessmannData(connection, 'getSolarStunden')
+        SolarLeistung=GetViessmannData(connection, 'getSolarLeistung')
+        SolarPump=GetViessmannData(connection, 'getSolarPumpeStatus')
+        TempSolar=GetViessmannData(connection, 'getTempSolarKollektor')
+        WaterTankTemp=GetViessmannData(connection, 'getTempWasserSpeicher1')
+       
+        BurnerStarts=GetViessmannData(connection, 'getBrennerStarts')
+        BurnerHours=GetViessmannData(connection, 'getBrennerStunden')
+        GasKW=GetViessmannData(connection, 'getLeistungIst') * 35/100
+        BoilerTarget=GetViessmannData(connection, 'getTempKesselSoll')
+        BoilerActual=GetViessmannData(connection, 'getTempKessel')
+        TankPump=GetViessmannData(connection, 'getPumpeStatusSp') 
+
+
+        WWTarget=GetViessmannData(connection, 'getTempWWsoll')
+        WWActual=GetViessmannData(connection, 'getTempWWist')
+        WWPump=GetViessmannData(connection, 'getPumpeStatusZirku')
+
+        HolidayBegin=GetViessmannData(connection, 'getHolidayBegin')
+
+
+
+        ######################################################
+        #Part 1 - Log data in database periodically
+        if minutenow/loginterval == int(minutenow/loginterval):
+            db = MySQLdb.connect(host="DISKSTATION", user="shutter", passwd="berry", db="Heating")
+
+            cursor = db.cursor()
+            cursor.execute("INSERT INTO History (Timestamp, BurnerHours, BurnerStarts, GasKW, ModeHK2, PumpHK2, SolarHours, SolarLeistung, SolarPump, TempAussen, TempInnen, TempRaumSoll, TempSolar, TempVLHK2, WaterTankTemp, BoilerTarget, BoilerActual, TankPump, WWTarget, WWActual, WWPump) VALUES \
+(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", \
+                           (now, BurnerHours, BurnerStarts, GasKW, ModeHK2, PumpHK2, SolarHours, SolarLeistung, SolarPump, TempAussen, TempInnen, TempRaumSoll, TempSolar, TempVLHK2, WaterTankTemp, BoilerTarget, BoilerActual, TankPump, WWTarget, WWActual, WWPump))
+            db.commit()
+            db.close()
+        ######################################################
+
+
+        ######################################################  
+        #Part 2 - Correct Heating         
+        HeatIncreaseAttempts = 0
+        #Use data to set heating logic
+        #If it's too hot, then switch off the heating and set the RaumTempSoll etc back to 
+        if ((InsideTemp > HeatingForceOff) or ((InsideTemp > HeatingForceOn) and (TempVLHK2 < InsideTemp + 4))) and (ModeHK2 == 2):
+            print("Switching heating off")
+            SetViessmannData(connection, 'setBetriebsartTo1')
+            NiveauCommand = 'setNiveauHK2 ' + str(int(DefaultNiveau))
+            NeigungCommand = 'setNeigungHK2 ' + str(DefaultNeigung)
+            TempRaumSollCommand = 'setTempRaumSollHK2 ' + str(int(DefaultTempRaumSoll))
+            SetViessmannData(connection, NiveauCommand)
+            SetViessmannData(connection, NeigungCommand)
+            SetViessmannData(connection, TempRaumSollCommand)
+
+
+
+
+        #If it's too cold and we're not in Mode 2, then first try Switching to Mode 2
+
+
+
+        if (InsideTemp < HeatingForceOn) and (ModeHK2 != 2):
+            print("Switching heating on")
+            SetViessmannData(connection, 'setBetriebsartTo2')
+            HeatIncreaseAttempts = 1
+        #If it's too cold and we're in Mode 2 and the pump is off and we haven't already tried to rectify on this pass, then try increasing the RaumTempSoll
+        if (InsideTemp < HeatingForceOn) and (ModeHK2 == 2) and (PumpHK2 == 0) and HeatIncreaseAttempts == 0:
+            print("Setting Target Temperature to " + str(int(TempRaumSoll+1)))
+            MyCommand = 'setTempRaumSollHK2 ' + str(int(TempRaumSoll+1)) 
+            SetViessmannData(connection, MyCommand)
+            HeatIncreaseAttempts = 1
+        #If it's too cold and we're in Mode 2 and the pump is on and the Vorlauf Temp < Heating Force Off temp .... then try increasing the RaumTempSoll
+        if (InsideTemp < HeatingForceOn) and (ModeHK2 == 2) and (PumpHK2 == 1) and TempVLHK2 < HeatingForceOff and HeatIncreaseAttempts == 0:
+            print("Setting Target Temperature to " + str(int(TempRaumSoll+1)))
+            MyCommand = 'setTempRaumSollHK2 ' + str(int(TempRaumSoll+1)) 
+            SetViessmannData(connection, MyCommand)
+            HeatIncreaseAttempts = 1
+        ####################################################################
+
+
+        ###################################################################
+        #Part 3 - Set HW Target Temps according to weather
+        WWTarget1 = DefaultWWTargetTemp
+        WWTarget2 = DefaultWWTargetTemp
+        WWTarget3 = DefaultWWTargetTemp
+
+        try:
+            db = MySQLdb.connect(host="DISKSTATION", user="shutter", passwd="berry", db="Heating")
+            cursor = db.cursor()
+            cursor.execute("SELECT * FROM WarmWaterTargets WHERE Day = '%s'" % Today)
+            results = cursor.fetchall()
+            db.close()
+        
+            for row in results:
+              WWTarget1 = row[1]
+              WWTarget2 = row[2]
+              WWTarget3 = row[3]
+        except:
+            print('could not retrieve WW Target Temps for today')
+    
+        if (datetime.datetime.strptime(CurrentTime, "%H:%M") < datetime.datetime.strptime(WWTarget1Time, "%H:%M")) and (WWTarget != WWTarget1):
+            print('setting WWTarget ' + str(WWTarget1))
+            MyCommand = 'setTempWWsoll ' + str(int(WWTarget1)) 
+            SetViessmannData(connection, MyCommand)      
+        if (datetime.datetime.strptime(CurrentTime, "%H:%M") > datetime.datetime.strptime(WWTarget1Time, "%H:%M")) and (datetime.datetime.strptime(CurrentTime, "%H:%M") < datetime.datetime.strptime(WWTarget2Time, "%H:%M")) and (WWTarget != WWTarget2):
+            print('setting WWTarget ' + str(WWTarget2))
+            MyCommand = 'setTempWWsoll ' + str(int(WWTarget2)) 
+            SetViessmannData(connection, MyCommand)  
+        if (datetime.datetime.strptime(CurrentTime, "%H:%M") > datetime.datetime.strptime(WWTarget2Time, "%H:%M")) and (WWTarget != WWTarget3):
+            print('setting WWTarget ' + str(WWTarget3))
+            MyCommand = 'setTempWWsoll ' + str(int(WWTarget3)) 
+            SetViessmannData(connection, MyCommand)
+        ####################################################################
+                  
+        connection.close()    
+#
+##############################################################################
+
+
+
 ##############################################################################################    
 # Loop function is repeatedly called by WebIOPi
 # Use this to check if any action needs to be taken
 # 60 s sleep as we don't need super accurate opening times
 # Note, run sudo raspi-config to change time zone!
 def loop():
+
+    getTemps()
+    GetAndSetHeating()
+
     TotalTemp = InsideTemp + OutsideTemp
     
     now = datetime.datetime.now()
@@ -628,6 +949,11 @@ def loop():
     # At 03:00 each Sunday, update the holidays for the year and write to a local file
     if ((CurrentTime == '03:00') and (CurrentDOW == 0)):
         getHolidays()
+
+    # Every hour until 12:00, try to get weather updates from yr.no
+    # This can be used to set WW Target Temps
+    if (now.hour < 12) and now.minute == 0:
+        setTodaysWWTargetTemps()
 
     # Check for Holiday
     HolidayToday = 'false'
