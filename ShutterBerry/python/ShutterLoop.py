@@ -20,7 +20,7 @@ if __name__ == "__main__":
  
 
     ShutterConfig, NumberOfRooms, NumberOfConfigItems = readShutterConfig()
-    NumberOfPins, GPIOConfig = GPIOConfigi()
+    NumberOfPins, GPIOConfig = getGPIOConfig()
     InsideTemp, OutsideTemp = getTemps()
 
     TotalTemp = InsideTemp + OutsideTemp
@@ -105,18 +105,21 @@ if __name__ == "__main__":
             TodayOpenTime = SundayUp
             TodayCloseTime = SundayDown
 
-        # Now Check for SunRiseSet Flag and times
-        if (SunRiseSet == 'true') and (datetime.datetime.strptime(SunSetLT, "%H:%M") < datetime.datetime.strptime(TodayCloseTime, "%H:%M")):
-            TodayCloseTime = SunSetLT
-        if (SunRiseSet == 'true') and (datetime.datetime.strptime(SunRiseLT, "%H:%M") > datetime.datetime.strptime(TodayOpenTime, "%H:%M")):
-            TodayOpenTime = SunRiseLT            
+       
 
-
+        SunRiseLTNumeric = TimeNumeric(SunRiseLT)
+        SunSetLTNumeric = TimeNumeric(SunSetLT)
         TodayOpenTimeNumeric = TimeNumeric(TodayOpenTime)
         TodayCloseTimeNumeric = TimeNumeric(TodayCloseTime)
         SunProtectionStartNumeric = TimeNumeric(SunProtectionStart)
         SunProtectionStopNumeric = TimeNumeric(SunProtectionStop)    
         CurrentTimeNumeric = TimeNumeric(CurrentTime)
+
+         # Now Check for SunRiseSet Flag and times
+        if (SunRiseSet == 'true') and (SunSetLTNumeric < TodayCloseTimeNumeric):
+            TodayCloseTimeNumeric = SunSetLTNumeric
+        if (SunRiseSet == 'true') and (SunRiseLTNumeric > TodayOpenTimeNumeric):
+            TodayOpenTimeNumeric = SunRiseLTNumeric
 
         # Determine whether Sun Protection Should Prohibit Opening
         SunProhibit = 'false'
@@ -127,18 +130,18 @@ if __name__ == "__main__":
         if ((TodayOpenTimeNumeric == CurrentTimeNumeric) and (AutoShutter == 'true')):
             # ..If they should and are allowed, open them
             if (SunProhibit == 'false'):
-                Logger(MyRoom + " Auto Opening " + CurrentTime, 'Info')
+                Logger(MyRoom + " Auto Opening ", "Info")
                 AutoShuttersOpen(MyRoom)
             # ...If they Should but are prohibited, leave them but set the last command to 'Close' to allow re-opening function to work
             if (SunProhibit == 'true'):
-                Logger(MyRoom + " Prohibited from Opening Due to Sun Protection " + CurrentTime, 'Info')
+                Logger(MyRoom + " Prohibited from Opening Due to Sun Protection ", "Info")
                 ShutterConfig[i][16] = 'Close'
-                writeShutterConfig()
+                writeShutterConfig(ShutterConfig, NumberOfConfigItems, NumberOfRooms)
             
             
         #Check whether Shutters need closing...
         if ((TodayCloseTimeNumeric == CurrentTimeNumeric) and (AutoShutter == 'true')):
-            Logger(MyRoom + " Auto Closing " + CurrentTime, 'Info')
+            Logger(MyRoom + " Auto Closing ", "Info")
             AutoShuttersClose(MyRoom)
         #
         ################################################################
@@ -157,17 +160,17 @@ if __name__ == "__main__":
         if ((SunProtection == 'true') and (TotalTemp >= ProtectionTemp) and (CurrentTimeNumeric >= SunProtectionStartNumeric) and (CurrentTimeNumeric < SunProtectionStopNumeric) and (SunProtectionLastCommand == 'Open')):
             AutoShuttersClose(MyRoom)
             ShutterConfig[i][16] = 'Close'
-            writeShutterConfig()
-            Logger(MyRoom + " Sun Protection Close" + CurrentTime, 'Info')
+            writeShutterConfig(ShutterConfig, NumberOfConfigItems, NumberOfRooms) 
+            Logger(MyRoom + " Sun Protection Close", "Info")
         #Opening at the end - but only if Sun Protection has closed shutters
         if ((SunProtection == 'true') and (CurrentTimeNumeric == SunProtectionStopNumeric) and (SunProtectionLastCommand == 'Close')):
             # whether opening is allowed or not by schedule, the last command sent needs to be set
             ShutterConfig[i][16] = 'Open'
-            writeShutterConfig()
+            writeShutterConfig(ShutterConfig, NumberOfConfigItems, NumberOfRooms)
             # ..if Opening is allowed by schedule, then open it
             if (ScheduleProhibit == 'false'):
                 AutoShuttersOpen(MyRoom)
-                Logger(MyRoom + " Sun Protection Re-Open" + CurrentTime, 'Info')
+                Logger(MyRoom + " Sun Protection Re-Open", "Info")
 
             
          #

@@ -54,12 +54,7 @@ def Logger(message, criticality):
 
 #####################################
 # GPIO pin using BCM numbering 
-def GPIOConfigi():
-
-    global NumberOfPins
-    global GPIOConfig
-
-    
+def getGPIOConfig():
 
 
     NumberOfPins = 18
@@ -101,7 +96,7 @@ def smartswitchSetup():
 # This function sends command to Arduino Shutters
 def ShutterSlaveSend(message):
 
-    Logger("Sending Shutter Slave: " + message, 'Info')
+    Logger("Sending Shutter Slave: " + str(message), 'Info')
     TCP_IP = '192.168.178.40' # Let router resolve address of ShutterBerrySlave
     TCP_PORT = 5015
     BUFFER_SIZE = 1024
@@ -111,38 +106,33 @@ def ShutterSlaveSend(message):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(1)
     except socket.error as e:
-        Logger ("Error creating socket: %s" % e, "Warning")
-        Logger ("Cannot create socket, " + message + " not sent", "Warning")
+        Logger ("Cannot create socket, " + str(message) + " not sent", "Warning")
         return
         
     #second try host
     try:
         s.connect((TCP_IP, TCP_PORT))
     except socket.gaierror as e:
-        Logger ("Address related error connecting to server: %s" % e, "Warning")
-        Logger ("Cannot connect to Shutter Slave, " + message + " not sent", "Warning")
+        Logger ("Cannot connect to Shutter Slave, " + str(message) + " not sent", "Warning")
         return
     except socket.error as e:
-        Logger ("Connection error: %s" % e, "Warning")
-        Logger ("Cannot connect to Shutter Slave, " + message + " not sent", "Warning")
+        Logger ("Cannot connect to Shutter Slave, " + str(message) + " not sent", "Warning")
         return
 
     #third try send data
     try:
         s.send(str(message).encode())
     except socket.error as e:
-        Logger ("Cannot send to server: %s" % e, "Warning")
-        Logger ("Cannot send to Shutter Slave, " + message + " not sent", "Warning")
+        Logger ("Cannot send to Shutter Slave, " + str(message) + " not sent", "Warning")
         s.close()
         return
 
     try:
         data = s.recv(BUFFER_SIZE)
-        Logger ("Shutter Slave Acknowledged:" + data, "Warning")
+        Logger ("Shutter Slave Acknowledged Message", "Info")
         s.close()
     except socket.error as e:
-        Logger ("Error Receiving Data: %s" % e, "Warning")
-        Logger("Shutter Slave Failed to Acknowledge:" + data, "Warning")
+        Logger("Shutter Slave Failed to Acknowledge Message", "Warning")
         s.close()
         return
 
@@ -200,9 +190,6 @@ def getTemps():
 def readShutterConfig():
 
 # Variables stored in Config file used in many places - so declare as global. Create a 2x2 Array with Columns = Number of Rooms and Rows = Number of Config Items +1 
-    global ShutterConfig
-    global NumberOfRooms
-    global NumberOfConfigItems
 
     NumberOfRooms = 6
     NumberOfConfigItems = 16
@@ -263,8 +250,8 @@ def readShutterConfig():
 
 @webiopi.macro
 def getShutterConfig(MyRoom):
-
-   for i in range(NumberOfRooms):
+    ShutterConfig, NumberOfRooms, NumberOfConfigItems = readShutterConfig()
+    for i in range(NumberOfRooms):
         if (ShutterConfig[i][0] == MyRoom):
             WeekdayUp = ShutterConfig[i][1]
             WeekdayDown = ShutterConfig[i][2]
@@ -281,6 +268,7 @@ def getShutterConfig(MyRoom):
 
 @webiopi.macro
 def getSunProtectionConfig():   
+    ShutterConfig, NumberOfRooms, NumberOfConfigItems = readShutterConfig()
     return "%s;%s" % (ShutterConfig[1][11], ShutterConfig[1][12])
 #
 ########################################################################
@@ -431,7 +419,6 @@ def getHolidays():
 ############################################################
 # setup function is automatically called at WebIOPi startup
 def setup():
-    GPIOConfigi()
     smartswitchSetup()
     readShutterConfig()
     getSunProtectionConfig()
@@ -445,24 +432,26 @@ def setup():
 # Velux control sets the actual GPIOs. Retries feature mitigates less reliable RF Link
 @webiopi.macro
 def VeluxControl(MyRoom, MyStatus):
+    NumberOfPins, GPIOConfig = getGPIOConfig()
     ButtonPress = 0.5
+    Logger(MyRoom + " " + MyStatus, "Info")
+
     if (OutsideTemp >= -2):
         for i in range(NumberOfPins):
             if (GPIOConfig[0][i] == MyRoom) and (GPIOConfig[1][i] == MyStatus):
                 GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
                 GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
-                time.sleep(ButtonPress)
-                GPIO.output(GPIOConfig[3][i], GPIO.LOW)
-                time.sleep(ButtonPress)
-                GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
-            i = NumberOfPins + 1
+                i = NumberOfPins + 1
     if (OutsideTemp < -2):
         Logger("Too cold for the Velux rollers", "Info")
+
+    return
         
 # Baier control sets the actual GPIOs for the Baier Shutters    
 @webiopi.macro
 def BaierControl(MyRoom, MyStatus):
+    NumberOfPins, GPIOConfig = getGPIOConfig()
     ButtonPress = 0.25
         
     for i in range(NumberOfPins):
@@ -476,7 +465,9 @@ def BaierControl(MyRoom, MyStatus):
                 GPIO.output(GPIOConfig[3][i], GPIO.LOW)
                 time.sleep(ButtonPress)
                 GPIO.output(GPIOConfig[3][i], GPIO.HIGH)
-        i = NumberOfPins + 1
+    Logger(MyRoom + ' ' + MyStatus, "Info")
+
+    
 
 #
 ######################################################################################
@@ -487,8 +478,10 @@ def BaierControl(MyRoom, MyStatus):
 #   a. ShutterConfig for each room
 #   b. The SunProtection Settings
 @webiopi.macro
-def writeShutterConfig():
+def writeShutterConfig(ShutterConfig, NumberOfConfigItems, NumberOfRooms):
 
+    print(ShutterConfig)
+    print(NumberOfConfigItems)
     # First BuildUp each Line.
     myline = [0 for x in range(NumberOfConfigItems + 1)]
     myline[0] = 'Room'
@@ -518,11 +511,13 @@ def writeShutterConfig():
     for y in range(NumberOfConfigItems +1):
         ConfigFile.write(myline[y] + '\n')
     ConfigFile.close()
+    Logger('Config File Updated', 'Info')
 
 @webiopi.macro
 def setShutterConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, SundayUp, SundayDown, AutoShutter, Holidays, SunRiseSet, KackWetter):
    
     # Do the oposite of getShutterConfig - i.e. update ShutterConfig write it to the file.
+    ShutterConfig, NumberOfRooms, NumberOfConfigItems = readShutterConfig()
     for i in range(NumberOfRooms):
         if (ShutterConfig[i][0] == MyRoom):
             ShutterConfig[i][1] = WeekdayUp
@@ -536,15 +531,16 @@ def setShutterConfig(MyRoom, WeekdayUp, WeekdayDown, SaturdayUp, SaturdayDown, S
             ShutterConfig[i][9] = SunRiseSet
             ShutterConfig[i][10] = KackWetter
 
-    writeShutterConfig()
+    writeShutterConfig(ShutterConfig, NumberOfConfigItems, NumberOfRooms)
 
 @webiopi.macro
 def setSunProtectionFlags(SunProtectionStatus, ReOpenStatus):
+    ShutterConfig, NumberOfRooms, NumberOfConfigItems = readShutterConfig()
     for i in range(NumberOfRooms):
         ShutterConfig[i][11] = SunProtectionStatus     
         ShutterConfig[i][12] = ReOpenStatus
 
-    writeShutterConfig()
+    writeShutterConfig(ShutterConfig, NumberOfConfigItems)
 #
 ##########################################################################################
 
