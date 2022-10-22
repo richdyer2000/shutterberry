@@ -96,7 +96,7 @@ def GetViessmannData(parameter):
     
     connection = ViessmannConnect()
     command = ('get' + parameter + ' \n').encode()
-    
+    time.sleep(0.1)
     data = ""
     while data != 'vctrld>':
         data = connection.recv(1024).decode()
@@ -160,8 +160,31 @@ def ViessmannConnect():
     else:
         return connection
 
+
 ##############################################################################
-# This function establishes Connection to the Viessmann
+# This function reads defaults from the database
+def GetHeatingDefaults():
+    try: 
+        cursor = HeatingDB.cursor()
+        cursor.execute("SELECT RaumTempSoll FROM DefaultSettings")
+        DefaultTempRaumSoll = cursor.fetchone()
+        DefaultTempRaumSoll = DefaultTempRaumSoll[0]
+    except:
+        DefaultTempRaumSoll = 20
+
+    try:
+        cursor = HeatingDB.cursor()
+        cursor.execute("SELECT WWTargetTemp FROM DefaultSettings")
+        DefaultWWTargetTemp = cursor.fetchone()
+        DefaultWWTargetTemp= DefaultWWTargetTemp[0]
+    except:
+        DefaultWWTargetTemp = 45
+
+    return DefaultTempRaumSoll, DefaultWWTargetTemp
+        
+
+##############################################################################
+# This function writws to the database
 def HeatingDBWrite(Instruction, ParameterList):
     try:
         cursor = HeatingDB.cursor()
@@ -180,12 +203,11 @@ if __name__ == "__main__":
     
     now = datetime.datetime.now()
  
-    DefaultTempRaumSoll = 22
+    DefaultTempRaumSoll, DefaultWWTargetTemp = GetHeatingDefaults()
     DefaultNeigung = 0.9
     DefaultNiveau = 0
-    DefaultWWTargetTemp = 44
-    HeatingForceOff = 22.5
-    HeatingForceOn = 21
+    HeatingForceOff = DefaultTempRaumSoll + 1
+    HeatingForceOn = DefaultTempRaumSoll - 1
     WWTarget1Time = '07:30'
     WWTarget2Time = '16:00'
 
@@ -239,25 +261,20 @@ if __name__ == "__main__":
     HeatIncreaseAttempts = 0
     #Use data to set heating logic
     #If it's too hot, then switch off the heating and set the RaumTempSoll etc back to default
-    if ((InsideTemp > HeatingForceOff) or ((InsideTemp > HeatingForceOn) and (TempVLHK2 < InsideTemp + 4))) and (ModeHK2 == 2):
+    if (InsideTemp > HeatingForceOff) and (ModeHK2 == 2):
         Logger("Switching heating off", "Info")
-        SetViessmannData('setBetriebsartTo1')
-        SetViessmannData('NiveauHK2 ' + str(int(DefaultNiveau)))
-        SetViessmannData('NeigungHK2 ' + str(DefaultNeigung))
-        SetViessmannData('TempRaumSollHK2 ' + str(int(DefaultTempRaumSoll)))
-
+        SetViessmannData('BetriebsartTo1')
+                
     #If it's too cold and we're not in Mode 2, then first try Switching to Mode 2
     if (InsideTemp < HeatingForceOn) and (ModeHK2 != 2):
         Logger("Switching heating on", "Info")
         SetViessmannData('BetriebsartTo2')
-        HeatIncreaseAttempts = 1
-    
-    #If it's too cold and we're in Mode 2 and the pump is on and the Vorlauf Temp < Heating Force Off temp +4.... then try increasing the RaumTempSoll
-    if (InsideTemp < HeatingForceOn) and (ModeHK2 == 2) and (PumpHK2 == 1) and TempVLHK2 < (HeatingForceOff +4) and HeatIncreaseAttempts == 0:
-        strTargetTemp = str(int(TempRaumSoll+1))
-        Logger("Setting Target Temperature to " + strTargetTemp, "Info")
-        SetViessmannData('TempRaumSollHK2 ' + strTargetTemp) 
-        HeatIncreaseAttempts = 1
+
+    #If TempRaum Soll is not as per database....
+    if TempRaumSoll != DefaultTempRaumSoll:
+        Logger("Updating TempRaum Soll to " + str(int(DefaultTempRaumSoll)) + "DgC"  , "Info")
+        SetViessmannData('TempRaumSollHK2 ' + str(int(DefaultTempRaumSoll)))
+
     ####################################################################
 
 
